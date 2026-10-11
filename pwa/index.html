@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none';">
 <title>H.Y.B.H</title>
 <meta name="theme-color" content="#2f5d5a">
 <link rel="manifest" href="manifest.webmanifest">
@@ -256,7 +256,7 @@ description: 为 H.Y.B.H 健身追踪 App 生成 AI 定制训练计划与饮食�
 <div id="daypop" popover></div>
 <dialog id="dlg"></dialog>
 
-<footer>本工具仅作健康生活参考，不构成医疗建议 · 如有不适请咨询专业人士</footer>
+<footer>仅作健康生活参考，不构成医疗建议 · 如有不适请咨询专业人士，全部数据均存放于本地</footer>
 
 <script>
 "use strict";
@@ -301,6 +301,7 @@ let animTimer=null, animPh=0;
 function startAnim(){
   clearInterval(animTimer);
   animTimer = setInterval(()=>{
+    if(document.hidden) return;   // 页面不可见时暂停，省电
     animPh = (animPh+1)%3;
     document.querySelectorAll("svg").forEach(s=>{
       [0,1,2].forEach(k=>{ const g=s.querySelector(".f"+k); if(g) g.style.display = k===animPh?"":"none"; });
@@ -395,7 +396,15 @@ const METAS = {
 
 // ---------- 存储层（schemaVersion 3） ----------
 const KEY = "dumbbell_fit_v1";
-let DB = JSON.parse(localStorage.getItem(KEY) || "null") || { v:1, schemaVersion:6, days:{},
+// 读取本地库：数据损坏时兜底为空库，避免整站白屏且无法自救
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    const o = raw ? JSON.parse(raw) : null;
+    return (o && typeof o === "object" && !Array.isArray(o)) ? o : null;
+  }catch(_){ return null; }
+}
+let DB = loadDB() || { v:1, schemaVersion:6, days:{},
   settings:{height:172, weight:60, hmWeeks:13} };
 (function migrate(){
   // 初始化数据必须先于一切版本判断：重置/首次打开都要能拿到完整种子数据
@@ -463,24 +472,34 @@ function dkey(d){ return d.toISOString().slice(0,10); }
 function dayIdxOf(d){ const w=d.getUTCDay(); return w===0?6:w-1; }
 function activePlan(){ return DB.plans[DB.activePlanId]; }
 function exById(id){ return DB.exercises[id]; }
+// 打卡餐数跟随当前饮食方案的餐数（内置 4 餐；AI 定制可为 3-6 餐）
+function mealCount(){ try{ return mealsPlan().meals.length || 4; }catch(_){ return 4; } }
 function dayRec(ds, wd){
   const plan = activePlan();
   const ids = plan.days[wd].exIds || [];
-  const rec = DB.days[ds];
+  const mc = mealCount();
+  let changed = false;
+  let rec = DB.days[ds];
   if(!rec){
-    DB.days[ds] = { planId: DB.activePlanId,
+    rec = DB.days[ds] = { planId: DB.activePlanId,
       ex: ids.map(id=>({id, done:false})),
-      meals: Array(4).fill(false) };
-  } else if(rec.planId !== DB.activePlanId ||
-            rec.ex.map(x=>x.id).join("|") !== ids.join("|")){
-    // 数据驱动：计划变更后，按当前计划重建当天快照，按 id 保留已完成状态
-    const old = new Map((rec.ex||[]).map(x=>[x.id, x.done]));
-    rec.planId = DB.activePlanId;
-    rec.ex = ids.map(id=>({id, done: old.get(id) || false}));
-    if(!rec.meals) rec.meals = Array(4).fill(false);
+      meals: Array(mc).fill(false) };
+    changed = true;
+  } else {
+    if(rec.planId !== DB.activePlanId ||
+       (rec.ex||[]).map(x=>x.id).join("|") !== ids.join("|")){
+      // 数据驱动：计划变更后，按当前计划重建当天快照，按 id 保留已完成状态
+      const old = new Map((rec.ex||[]).map(x=>[x.id, x.done]));
+      rec.planId = DB.activePlanId;
+      rec.ex = ids.map(id=>({id, done: old.get(id) || false}));
+      changed = true;
+    }
+    if(!Array.isArray(rec.ex)){ rec.ex = []; changed = true; }
+    if(!Array.isArray(rec.meals)){ rec.meals = Array(mc).fill(false); changed = true; }
+    else if(rec.meals.length !== mc){ rec.meals = Array.from({length:mc},(_,i)=>!!rec.meals[i]); changed = true; }
   }
-  if(!DB.days[ds].meals) DB.days[ds].meals = Array(4).fill(false);
-  return DB.days[ds];
+  if(changed) save();   // 快照变更即落盘
+  return rec;
 }
 function uid(p){ return p + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -495,8 +514,10 @@ function exRow(e, done, interactive, clickJs){
 }
 
 // ---------- 组件：Dialog 弹窗 ----------
-function openDlg(title, html){
+function openDlg(title, html, onApply, onCancel){
   const dlg = document.getElementById("dlg");
+  dlg.onapply = onApply || null;
+  dlg.oncancel = onCancel || null;
   dlg.innerHTML = dlgInner(title, html);
   dlg.showModal();
 }
@@ -511,7 +532,8 @@ function refreshDlg(title, html){
 }
 function closeDlg(apply){
   const dlg = document.getElementById("dlg");
-  const fn = apply ? dlg.onapply : null;
+  const fn = apply ? dlg.onapply : dlg.oncancel;
+  dlg.onapply = null; dlg.oncancel = null;
   dlg.close();                       // 先关闭再回调，允许回调里再次 showModal（如新建计划→编辑计划）
   if(fn) fn();
 }
@@ -696,7 +718,7 @@ function renderWeek(){
     col.innerHTML = `<div class="card"${i===dayIdxOf(today())?' style="border-left:3px solid var(--accent)"':""}>
       <h2>周${"一二三四五六日"[i]} · ${esc(day.title)}${i===dayIdxOf(today())?' <span style="color:var(--accent);font-size:10.5px">← 今天</span>':""}</h2>
       <div class="meta">${METAS[day.title] || "自定义训练日"}</div>
-      ${day.exIds.map(id=>exRow(exById(id), false, false, "")).join("") || '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">休息</div>'}
+      ${day.exIds.map(id=>{ const e=exById(id); return e?exRow(e, false, false, ""):""; }).join("") || '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">休息</div>'}
     </div>`;
     strip.appendChild(col);
     dots.insertAdjacentHTML("beforeend", `<i${i===0?' class="on"':''}></i>`);
@@ -732,7 +754,7 @@ function renderLib(){
           <div class="ex" style="cursor:default">${exFig(x.fig)}
             <div class="info"><h3>${esc(x.name)}</h3>
               <div class="sets">${esc(x.sets)}</div>
-              <div class="pts-line">${x.part} · ${x.equip} ｜ ${esc(x.points)}</div></div>
+              <div class="pts-line">${esc(x.part)} · ${esc(x.equip)} ｜ ${esc(x.points)}</div></div>
           </div>`).join("")}
       </div>
       <div class="card" style="margin-top:12px">
@@ -741,7 +763,7 @@ function renderLib(){
           <div class="ex" style="cursor:default">${exFig(x.fig)}
             <div class="info"><h3>${esc(x.name)}</h3>
               <div class="sets">${esc(x.sets)}</div>
-              <div class="pts-line">${x.part} · ${x.equip} ｜ ${esc(x.points)}</div></div>
+              <div class="pts-line">${esc(x.part)} · ${esc(x.equip)} ｜ ${esc(x.points)}</div></div>
             <div style="display:flex;gap:8px">
               <button class="btn sm acc" onclick="editEx('${id}')">编辑</button>
               <button class="btn sm" onclick="delEx('${id}')">删除</button>
@@ -765,13 +787,13 @@ function exForm(id, e){
 function newEx(){
   const id = uid("ex");
   DB.exercises[id] = { name:"自定义动作", fig:"custom", part:"胸", equip:"哑铃", sets:"3 × 12", points:"", custom:true };
-  save(); editEx(id);
+  editEx(id, true);   // 不先落盘：取消编辑时回滚，避免残留空动作
 }
-function editEx(id){
+function editEx(id, isNew){
   if(!DB.exercises[id] || !DB.exercises[id].custom) return;  // 内置动作只读
-  const dlg = document.getElementById("dlg");
-  dlg.onapply = ()=>saveEx(id);
-  openDlg("编辑自定义动作", exForm(id, DB.exercises[id]));
+  openDlg("编辑自定义动作", exForm(id, DB.exercises[id]),
+    ()=>saveEx(id),
+    isNew ? ()=>{ delete DB.exercises[id]; save(); renderLib(); } : null);
 }
 function saveEx(id){
   const e = DB.exercises[id];
@@ -858,8 +880,8 @@ function renderSet(){
   document.getElementById("setW").onchange = saveSet;
 }
 function saveSet(){
-  DB.settings.height = +document.getElementById("setH").value || 172;
-  DB.settings.weight = +document.getElementById("setW").value || 60;
+  DB.settings.height = clamp(+document.getElementById("setH").value || 172, 100, 250, 172);
+  DB.settings.weight = clamp(+document.getElementById("setW").value || 60, 25, 300, 60);
   save(); renderSet(); renderDiet();
 }
 function setRange(w){ DB.settings.hmWeeks = w; save(); renderHeatmap(); renderSet(); }
@@ -879,16 +901,14 @@ function delMeal(gid){
 let planDlgPid = null;
 function editPlan(pid){
   planDlgPid = pid;
-  const dlg = document.getElementById("dlg");
-  dlg.onapply = ()=>{ planDlgPid = null; renderSet(); renderToday(); renderWeek(); renderHeatmap(); };
-  openDlg("编辑计划", planEditor(pid, DB.plans[pid]));
+  openDlg("编辑计划", planEditor(pid, DB.plans[pid]),
+    ()=>{ planDlgPid = null; renderSet(); renderToday(); renderWeek(); renderHeatmap(); });
 }
 function refreshPlanDlg(){
   if(planDlgPid) refreshDlg("编辑计划", planEditor(planDlgPid, DB.plans[planDlgPid]));
 }
 function usePlan(pid){
-  DB.activePlanId = pid;
-  const t = today(); delete DB.days[dkey(t)];   // 新计划当天重新生成快照
+  DB.activePlanId = pid;   // dayRec 会按新计划重建当天动作快照，并保留已完成状态与饮食打卡
   save(); planDlgPid = null;
   renderSet(); renderToday(); renderWeek(); renderHeatmap(); startAnim();
 }
@@ -897,8 +917,7 @@ function delPlan(pid){
   if(confirm("删除计划？")){ delete DB.plans[pid]; save(); renderSet(); }
 }
 function newPlan(){
-  const dlg = document.getElementById("dlg");
-  dlg.onapply = ()=>{
+  openDlg("新建计划", `<div class="frow"><label>计划名称<input id="np-name" value="我的计划"></label></div>`, ()=>{
     const name = document.getElementById("np-name").value.trim();
     if(!name) return;
     const pid = uid("pl");
@@ -907,8 +926,7 @@ function newPlan(){
     save();
     renderSet(); renderToday(); renderWeek(); renderHeatmap(); startAnim();
     editPlan(pid);                        // 直接进入编辑器
-  };
-  openDlg("新建计划", `<div class="frow"><label>计划名称<input id="np-name" value="我的计划"></label></div>`);
+  });
 }
 function planEditor(pid, p){
   return `
@@ -924,7 +942,7 @@ function planEditor(pid, p){
           ${day.exIds.map((id,i)=>{
             const e = exById(id);
             return `<div class="exitem">
-              <span class="idx">${i+1}</span><span class="nm">${e?e.name:"?"}</span>
+              <span class="idx">${i+1}</span><span class="nm">${e?esc(e.name):"?"}</span>
               <span class="ops">
                 <span onclick="moveEx('${pid}',${di},${i},-1)">↑</span>
                 <span onclick="moveEx('${pid}',${di},${i},1)">↓</span>
@@ -953,9 +971,12 @@ function moveEx(pid, di, i, dir){
 }
 
 // ---------- 热力图（按月分列，自动定位今天） ----------
-function levelOf(rec){ if(!rec||!rec.ex) return 0; const r = rec.ex.filter(x=>x.done).length/rec.ex.length; return r===0?0:r<0.34?1:r<0.67?2:r<1?3:4; }
+function levelOf(rec){ if(!rec||!rec.ex||!rec.ex.length) return 0; const r = rec.ex.filter(x=>x.done).length/rec.ex.length; return r===0?0:r<0.34?1:r<0.67?2:r<1?3:4; }
 function renderHeatmap(){
-  const hm = document.getElementById("hm"); hm.innerHTML = "";
+  const hm = document.getElementById("hm");
+  const prevLeft = hm.scrollLeft;
+  const wasAtEnd = prevLeft <= 0 || prevLeft >= hm.scrollWidth - hm.clientWidth - 2;
+  hm.innerHTML = "";
   const months = {"13":3,"26":6,"52":12}[String(DB.settings.hmWeeks)] || 3;
   const T = today().getTime(), nowM = today().getUTCMonth(), nowY = today().getUTCFullYear();
   for(let mi = months-1; mi >= 0; mi--){
@@ -985,7 +1006,9 @@ function renderHeatmap(){
   const first = Object.keys(DB.days).filter(k=>{const r=DB.days[k]; return r.ex&&r.ex.some(x=>x.done)||r.meals&&r.meals.some(Boolean);}).sort()[0];
   document.getElementById("hmL").textContent = first ? "自 "+first+" 起" : "今天开始记录";
   const wrap = document.getElementById("hm");
-  requestAnimationFrame(()=>{ wrap.scrollLeft = wrap.scrollWidth; });
+  requestAnimationFrame(()=>{
+    wrap.scrollLeft = wasAtEnd ? wrap.scrollWidth : Math.min(prevLeft, wrap.scrollWidth - wrap.clientWidth);
+  });
 }
 function showDay(ds){
   const pop = document.getElementById("daypop");
@@ -1064,7 +1087,7 @@ function sanitizeBackup(o){
       shop:(Array.isArray(mv.shop)?mv.shop:[]).filter(r=>Array.isArray(r)).slice(0,10).map(r=>[str(r[0],24),str(r[1],8)]) };
   });
   Object.entries(o.days && typeof o.days==="object" ? o.days : {}).forEach(([k,v])=>{
-    if(SAFE_KEY.test(k) && v && typeof v==="object") out.days[k] = { planId:SAFE_KEY.test(v.planId)?v.planId:"", ex:Array.isArray(v.ex)?v.ex.filter(x=>x&&typeof x==="object").map(x=>({id:x.id&&SAFE_KEY.test(x.id)?x.id:null,done:!!x.done})):[], meals:Array.isArray(v.meals)?v.meals.slice(0,8).map(Boolean):Array(4).fill(false) };
+    if(SAFE_KEY.test(k) && v && typeof v==="object") out.days[k] = { planId:SAFE_KEY.test(v.planId)?v.planId:"", ex:Array.isArray(v.ex)?v.ex.filter(x=>x&&typeof x==="object").map(x=>({id:x.id&&SAFE_KEY.test(x.id)?x.id:null,done:!!x.done})):[], meals:Array.isArray(v.meals)?v.meals.slice(0,8).map(Boolean):[] };
   });
   if(!out.plans[out.activePlanId]) out.activePlanId = Object.keys(out.plans)[0] || "";
   if(!out.meals[out.settings.goal]) out.settings.goal = Object.keys(out.meals)[0] || "muscle";
@@ -1072,7 +1095,7 @@ function sanitizeBackup(o){
   return out;
 }
 
-// ---------- AI 定制包导入（契约见 llms.txt / SKILL.md） ----------
+// ---------- AI 定制包导入（契约见本文件内嵌的 skill-src 只读区块） ----------
 // 原则：幂等导入——动作按名字复用；同名计划、同名 label 饮食方案为「更新」而非重复新增；内置数据保留可切回
 const CUSTOM_FIGS = ["squat","pushup","fly","raise","dead","row","curl","core","bridge","stretch","rest"];
 const clamp = (n,a,b,d)=>{ n = +n; return Number.isFinite(n) ? Math.min(b, Math.max(a, n)) : d; };
@@ -1142,12 +1165,6 @@ function applyCustomPackage(pkg){
     alert("定制包中没有可导入的计划或饮食方案，已取消。"); return;
   }
 
-  // 4. 个人数据（可选，夹紧）
-  if(pkg.settings && typeof pkg.settings === "object"){
-    DB.settings.height = clamp(pkg.settings.height, 100, 250, DB.settings.height);
-    DB.settings.weight = clamp(pkg.settings.weight, 25, 300, DB.settings.weight);
-  }
-
   const exN = Object.keys(newEx).length;
   const mealLine = mealObj
     ? (mealObj._existKey ? `· 更新同名饮食方案「${mealObj.label}」（保持原位置，导入后启用）` : `· 新增饮食方案「${mealObj.label}」（导入后启用）`)
@@ -1162,6 +1179,12 @@ function applyCustomPackage(pkg){
     `\n确认导入？`
   ].filter(Boolean).join("\n");
   if(!confirm(lines)) return;
+
+  // 4. 个人数据（可选，夹紧）——确认后才写入，取消则完全不动
+  if(pkg.settings && typeof pkg.settings === "object"){
+    DB.settings.height = clamp(pkg.settings.height, 100, 250, DB.settings.height);
+    DB.settings.weight = clamp(pkg.settings.weight, 25, 300, DB.settings.weight);
+  }
 
   Object.assign(DB.exercises, newEx);
   Object.assign(DB.plans, newPlans);
@@ -1238,9 +1261,9 @@ function importPkgText(){
 // ---------- 分享图（Canvas 生成：今日进度 + 周计划 + 饮食方案 + 站点二维码） ----------
 // QR 生成器：byte 模式、ECC 级别 L、版本 1-10 自适应（精简自 Nayuki qrcodegen 公开算法）
 function qrMatrix(text, forceMask){
-  const CAP  = [17,32,53,78,106,134,154,192,230,272];   // L 级用户数据容量（字节）
+  const CAP  = [17,32,53,78,106,134,154,192,230,271];   // L 级用户数据容量（字节）
   const DCW  = [19,34,55,80,108,136,156,194,232,274];   // L 级数据码字数（填充目标）
-  const ECCW = [7,10,15,20,26,18,20,24,30,18];          // 每块 ECC 码字数
+  const ECCW = [7,10,15,20,26,18,20,24,30,36];          // 每块 ECC 码字数（v10-L 为 36/块）
   const NBLK = [1,1,1,1,1,2,2,2,2,2];
   const ALIGN = [[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50]];
   const gfMul = (x,y)=>{ let z=0; for(let i=7;i>=0;i--){ z=(z<<1)^((z>>>7)*0x11D); z ^= ((y>>>i)&1)*x; } return z&0xFF; };
