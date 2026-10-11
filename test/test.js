@@ -1,4 +1,4 @@
-// H.Y.B.H 回归测试 —— node test.js（无头运行，全部断言通过输出 ALL PASS）
+// H.Y.B.H 回归测试 —— node test/test.js（无头运行，全部断言通过输出 ALL PASS）
 // 覆盖：迁移种子 / AI 定制包幂等 / 恶意数据转义 / 备份导入净化 / 打卡原地更新
 "use strict";
 const fs = require("fs");
@@ -19,7 +19,7 @@ let msgs=[]; global.alert=m=>msgs.push(m);
 let confirms=[]; global.confirm=q=>{ confirms.push(q); return true; };
 
 // ---------- 载入应用脚本 ----------
-const html = fs.readFileSync(__dirname + "/index.html", "utf8");
+const html = fs.readFileSync(__dirname + "/../pwa/index.html", "utf8");
 const scripts = html.match(/<script>([\s\S]*?)<\/script>/g).map(s=>s.replace(/<\/?script>/g,""));
 const app = scripts.find(s=>s.includes("schemaVersion")).replace(/renderAll\(\);\s*$/, "");
 eval(app + "\nglobalThis.__T = { DB, KEY, renderDiet, renderToday, toggleMeal, toggleEx, applyCustomPackage, sanitizeBackup, dayRec, dayIdxOf, dkey, today, qrMatrix };");

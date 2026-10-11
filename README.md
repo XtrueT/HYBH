@@ -29,13 +29,15 @@ H.Y.B.H 是一个面向个人的健身与饮食打卡工具。它把「训练计
 
 ```
 HYBH/
-├── pwa/
+├── pwa/                      # ← 部署目录（Cloudflare Pages 输出此目录）
 │   ├── index.html            # 应用主体（HTML + CSS + JS 单文件）
 │   ├── sw.js                 # Service Worker：cache-first 离线 + 后台静默更新
 │   ├── manifest.webmanifest  # PWA 清单（standalone / 竖屏 / 主题色）
+│   ├── privacy.html          # 隐私政策页
 │   ├── _headers              # Cloudflare Pages 安全响应头（CSP 等）
-│   ├── test.js               # Node 回归测试（无需浏览器）
 │   └── icons/                # 应用图标（192 / 512 / maskable / apple-touch）
+├── test/
+│   └── test.js               # Node 回归测试（放在 pwa/ 之外，不会随站点发布）
 └── .gitignore
 ```
 
@@ -84,9 +86,8 @@ python3 -m http.server 8080
 ## 测试
 
 ```bash
-cd pwa
-node test.js
-# 期望输出：ALL PASS · 34 通过, 0 失败
+node test/test.js
+# 期望输出：ALL PASS · 35 通过, 0 失败
 ```
 
 覆盖：数据迁移与种子、AI 定制包幂等导入、XSS 渲染转义、备份导入净化、打卡原地更新、二维码结构自检。
