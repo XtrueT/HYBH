@@ -117,7 +117,6 @@
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
   .chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); background:var(--bg); padding:3px 8px; font-size:11.5px; }
   .chip b { color:var(--mut); cursor:pointer; font-weight:400; }
-  .chip .up { color:var(--accent); cursor:pointer; }
   .exitem { display:flex; align-items:center; gap:8px; padding:8px 2px; border-bottom:1px solid var(--line); font-size:12.5px; }
   .exitem:last-child { border-bottom:none; }
   .exitem .idx { color:var(--mut); width:16px; font-size:11px; }
@@ -128,7 +127,6 @@
   .frow label { flex:1; font-size:11px; color:var(--mut); }
   .frow input, .frow select, .frow textarea { width:100%; margin-top:3px; padding:7px; border:1px solid var(--line); font-size:12.5px; background:var(--card); font-family:inherit; }
   .frow textarea { height:46px; resize:none; }
-  .exedit { border:1px solid var(--line); padding:10px; margin-top:8px; }
 
   /* Popover（当天执行情况）：top layer 居中 */
   #daypop { position:fixed; inset:0; width:min(300px, 84vw); height:fit-content; max-height:70vh; overflow-y:auto; margin:auto; border:1px solid var(--line); background:var(--card); box-shadow:0 6px 24px rgba(26,26,26,.18); padding:14px; }
@@ -176,7 +174,7 @@
 <script type="text/plain" id="skill-src">
 ---
 name: hybh-fitness-custom
-description: 为 H.Y.B.H 健身追踪 App 生成 AI 定制训练计划与饮食方案包。当用户提供身高体重、健身目标、器材条件、伤病情况等需求，希望得到定制计划/饮食时使用。
+description: 为 H.Y.B.H 健身追踪 App 生成 AI 定制训练计划与饮食方案包。当用户提供身高体重、年龄性别、目标体重、健身目标、器材条件、伤病情况等需求，希望得到定制计划/饮食时使用。
 ---
 
 # H.Y.B.H AI 定制工作流
@@ -185,7 +183,7 @@ description: 为 H.Y.B.H 健身追踪 App 生成 AI 定制训练计划与饮食�
 
 ## 工作流
 
-1. **收集需求**：目标（增肌/减脂/体态/体能）、每周可训练天数、可用器材（哑铃重量/弹力带/徒手）、饮食预算或偏好、伤病史。缺失项用合理默认值并在输出前向用户复述假设。
+1. **收集需求**：目标（增肌/减脂/体态/体能）、身高体重、年龄、性别、目标体重、每周可训练天数、可用器材（哑铃重量/弹力带/徒手）、饮食预算或偏好、伤病史。缺失项用合理默认值并在输出前向用户复述假设。
 2. **设计**：按下方「数据契约」构造 JSON。优先复用内置动作（见内置动作清单），只把库里没有的动作放进 `exercises`。
 3. **校验**：输出前逐项自查——`kind` 必须是 `hybh-custom`；`plans.*.days` 恰好 7 项；`fig`/`part` 在枚举内；`exNames` 中的动作名要么在内置清单、要么在 `exercises` 里。
 4. **输出**：一个完整 JSON（单独代码块），随后附 3-5 行要点说明（训练思路、饮食系数、注意事项）与免责声明。
@@ -199,9 +197,9 @@ description: 为 H.Y.B.H 健身追踪 App 生成 AI 定制训练计划与饮食�
   "kind": "hybh-custom",
   "v": 1,
   "profile": "用户需求一句话摘要（≤50 字）",
-  "settings": { "height": 170, "weight": 65 },
+  "settings": { "height": 170, "weight": 65, "age": 25, "sex": "male", "targetWeight": 70 },
   "exercises": [ { "name": "壶铃摆荡", "fig": "dead", "part": "臀", "equip": "壶铃", "sets": "3 × 15", "points": "髋部发力甩铃，下背保持中立。" } ],
-  "plans": { "plan1": { "name": "居家增肌四周", "days": [
+  "plans": { "plan1": { "name": "居家增肌四周", "dir": "增肌", "days": [
     { "title": "上肢推", "exNames": ["俯卧撑", "肩上推举", "哑铃飞鸟"] },
     { "title": "下肢",   "exNames": ["高脚杯深蹲", "箭步蹲", "臀桥"] },
     { "title": "主动恢复", "exNames": ["全身拉伸", "散步 / 快走"] },
@@ -224,17 +222,23 @@ description: 为 H.Y.B.H 健身追踪 App 生成 AI 定制训练计划与饮食�
 
 ### 字段约束
 
-- **settings**（可选）：height 100-250 cm，weight 25-300 kg。仅在用户提供了身高体重时填写。
+- **settings**（可选）：height 100-250 cm；weight 需落在 **BMI 12-70** 内（这是防误输入的合理范围，覆盖极端体型，不代表健康标准）；age 10-100 岁；sex 取 `male`/`female`/`none`；targetWeight 需落在 **BMI 18.5-24 的健康区间**内（不允许设成偏瘦或超重的目标）。仅在用户提供了相应信息时填写；超出范围的值会被 App 夹紧到边界。填写 age 与 sex 后，App 会用 Mifflin-St Jeor 公式算出 BMR/TDEE 得到更准的热量目标；targetWeight 与当前体重之差决定盈余（增肌 +12%）或缺口（减脂 −20%）。
 - **exercises**（可选，≤20 个）：只列**内置库没有**的动作。字段：
   - name：必填，≤20 字，与内置动作重名会被忽略并复用内置动作。
   - fig：动作示意图标枚举：`squat | pushup | fly | raise | dead | row | curl | core | bridge | stretch | rest`，非法值自动降级为通用图标。
   - part：部位枚举：`胸 | 肩 | 背 | 臂 | 腿 | 臀 | 核心 | 有氧 | 恢复`，非法值归入「核心」。
   - equip ≤10 字（如 自重/哑铃/弹力带）；sets ≤20 字（如 `3 × 12`、`3 × 40 秒`）；points ≤120 字动作要点。
-- **plans**（建议 1 套）：name ≤16 字；days 恰好 7 项（周一→周日），每项 `title` ≤10 字、
+- **plans**（建议 1 套）：name ≤16 字；`dir`（可选）取 `增肌`/`减脂`/`维持`，用于和用户目标方向比对并在不符时提醒；
+  days 恰好 7 项（周一→周日），每项 `title` ≤10 字、
   `exNames` 为动作名数组（先引用内置动作名，内置没有的放进 exercises）；每天 4-5 个动作为宜。
 - **meals**（可选）：3-6 餐；kcal/pro 为每公斤体重系数（热量 kcal/kg/天、蛋白 g/kg/天，
   安全区 kcal 20-45、pro 1.2-2.5，越界会被夹紧）；wcost 为 60kg 成人每周采购参考价（元）；
-  rows 每行 `[食物, 分量, 蛋白质]`，蛋白质为 `—` 表示不计。App 会按用户体重自动折算热量与蛋白目标并缩放份量。
+  rows 每行 `[食物, 分量, 蛋白质]`，蛋白质为 `—` 表示不计。
+  App 会按 kcal 系数**推断该方案的方向**（≥32 增肌 / ≤28 减脂 / 中间为维持）用于匹配提醒，无需额外字段。
+  折算方式：`pro` 按 `体重 × pro` 折算，但 App 会按目标方向自动抬高下限
+  （减脂 ≥1.8g/kg 防掉肌，增肌/维持 ≥1.5g/kg），所以填 1.5 也是安全的；`kcal` 系数是**回退值**——
+  一旦 settings 里给了 age 与 sex，App 就改用 Mifflin-St Jeor 的 BMR/TDEE 计算热量目标
+  （此时 kcal 系数不参与），并据此等比缩放份量。
 
 ## 内置动作库（可直接按名字引用，勿重复创建）
 
@@ -249,7 +253,7 @@ description: 为 H.Y.B.H 健身追踪 App 生成 AI 定制训练计划与饮食�
 1. 遵循渐进超负荷：选择「能标准完成目标次数、最后 2-3 次接近力竭」的重量，不指定具体 kg 数。
 2. 新手前两周强度减半；每周至少 1 个休息日（轻度活动：拉伸+散步）。
 3. 用户提及伤病（腰/膝/肩等）时，规避相关负重动作，改用低冲击替代并注明。
-4. 减脂目标蛋白 ≥1.8g/kg 防掉肌；热量缺口温和（约 -300~500 kcal/天）。
+4. 减脂目标蛋白 ≥1.8g/kg 防掉肌；热量缺口温和（App 按 TDEE 的 −20% 计算，约 -300~600 kcal/天）。
 5. 不输出医疗建议；输出末尾附一句「AI 定制仅供参考，不构成医疗建议」。
 
 ## 幂等性
@@ -275,7 +279,6 @@ const esc = s => String(s??'').replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;"
 // ==================================================================
 
 // ---------- 动作图形（14 种火柴人，fig 字段可替换为图片路径以迁移小程序） ----------
-const FIGS = ["curl","press","row","squat","lunge","pushup","dead","fly","raise","ext","bridge","core","stretch","rest"];
 function pose(type, ph){
   const K="#1a1a1a";
   const base = `<rect x="70" y="122" width="60" height="4" fill="#dfe1df"/>`;
@@ -465,9 +468,14 @@ let DB = loadDB() || { v:1, schemaVersion:6, days:{},
     DB.plans = Object.assign(DB.plans || {}, seedPlans(byName));
   }
   if(!DB.plans[DB.activePlanId]) DB.activePlanId = "pl-muscle";
+  // 训练计划方向：老数据按名字推断一次，之后以显式 dir 为准（空 = 未指定，不参与匹配检查）
+  Object.values(DB.plans || {}).forEach(p=>{ if(p && typeof p.dir !== "string") p.dir = dirFromName(p.name); });
   if(!DB.settings) DB.settings = {height:172, weight:60, hmWeeks:13, goal:"muscle"};
   if(!DB.settings.goal) DB.settings.goal = "muscle";
   if(typeof DB.settings.showHeatmap !== "boolean") DB.settings.showHeatmap = true;   // 默认显示首页热力图
+  if(typeof DB.settings.age !== "number") DB.settings.age = 25;                      // 年龄（用于 BMR 计算）
+  if(!["male","female","none"].includes(DB.settings.sex)) DB.settings.sex = "none";  // 性别；none = 不透露
+  if(typeof DB.settings.targetWeight !== "number") DB.settings.targetWeight = DB.settings.weight || 60;   // 目标体重
 })();
 function save(){
   // 约定：打卡类交互=原地 DOM 更新（不重绘防滚动），配置类=整面板重绘；DB 字符串进模板必过 esc()
@@ -581,7 +589,7 @@ function renderToday(){
         }).join("") : '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">今天没有安排动作，可在 设置 → 计划管理 中添加</div>'}
       </div>
       <div class="card" style="margin-top:12px">
-        <h2>${esc(MP.label)}<small><span id="meal-cnt">${md}/${MM.length} 餐</span> · ≈${T.kcal-100}~${T.kcal+100} 千卡</small></h2>
+        <h2>${esc(MP.label)}<small><span id="meal-cnt">${md}/${MM.length} 餐</span> · 每天 ≈${T.kcal} 千卡${T.dir && T.dir !== "维持" ? "（" + T.dir + "）" : ""}</small></h2>
         <div class="bar"><b id="meal-bar" style="width:${MM.length?md/MM.length*100:0}%"></b></div>
         <div style="margin-top:4px">
           ${MM.map((m,i)=>`
@@ -608,7 +616,7 @@ function toggleEx(i, el){
   const cnt = document.getElementById("ex-cnt"), bar = document.getElementById("ex-bar");
   if(cnt) cnt.textContent = `${done}/${total} 动作`;
   if(bar) bar.style.width = (total?done/total*100:0) + "%";
-  renderHeatmap(); startAnim();
+  updateHeatmapToday(); startAnim();
 }
 
 // ---------- 饮食 ----------
@@ -632,16 +640,44 @@ function seedMeals(){
 }
 // 按体重实时折算热量/蛋白目标（每公斤系数法，无需年龄性别输入）
 function mealsPlan(){ return DB.meals && (DB.meals[DB.settings.goal] || DB.meals.muscle) || seedMeals().muscle; }
+// 热量目标：填了性别与年龄时用 Mifflin-St Jeor 算 BMR → TDEE（中度活动）→ 按目标体重决定盈余/缺口；
+// 否则回退到「体重 × 方案每公斤系数」。蛋白始终用方案的 pro/kg。
+const ACTIVITY = 1.5;   // 中度活动系数
+// 体型健康区间（中国成人标准：BMI 18.5–23.9 为正常）
+const BMI_HEALTHY_MIN = 18.5, BMI_HEALTHY_MAX = 24;
+const BMI_ABS_MIN = 12, BMI_ABS_MAX = 70;   // 当前体重的合理范围：仅用于挡误输入，覆盖极端体型（BMI 12–70）
+const DIRS = ["增肌","减脂","维持"];        // 方案/计划的方向枚举（空串 = 未指定）
+function dirFromName(s){ return /减脂|瘦身|lean/i.test(s||"") ? "减脂"
+                       : (/增肌|增重|muscle|bulk/i.test(s||"") ? "增肌"
+                       : (/维持|保持|maintain/i.test(s||"") ? "维持" : "")); }
+// 饮食方案的方向由内容推断（kcal 系数）：≥32 增肌 / ≤28 减脂 / 中间为维持
+function mealDirOf(m){ const k = (m && m.kcal) || 33; return k >= 32 ? "增肌" : (k <= 28 ? "减脂" : "维持"); }
+function bmiTag(v){ return v < 18.5 ? "偏瘦" : (v < 24 ? "正常" : (v < 28 ? "超重" : "肥胖")); }
 function dietTargets(){
-  const W = DB.settings.weight, P = mealsPlan();
-  return { kcal:Math.round(W*(P.kcal||33)), pro:Math.round(W*(P.pro||1.5)), k:P.pro||1.5, note:P.note||"" };
+  const S = DB.settings, W = S.weight, P = mealsPlan();
+  const d   = (+S.targetWeight || W) - W;
+  const dir = d < -0.5 ? "减脂" : (d > 0.5 ? "增肌" : "维持");
+  // 蛋白系数随目标方向自动对齐：减脂至少 1.8g/kg（防掉肌），增肌/维持至少 1.5g/kg
+  const k   = Math.max(P.pro || 1.5, dir === "减脂" ? 1.8 : 1.5);
+  const pro = Math.round(W * k);
+  const A = +S.age, H = +S.height;
+  if((S.sex === "male" || S.sex === "female") && A >= 10 && A <= 100 && W > 0 && H > 0){
+    const bmr  = 10*W + 6.25*H - 5*A + (S.sex === "male" ? 5 : -161);
+    const tdee = bmr * ACTIVITY;
+    const adj  = dir === "减脂" ? 0.80 : (dir === "增肌" ? 1.12 : 1.0);   // 减脂 −20% / 增肌 +12% / 维持
+    return { kcal:Math.round(tdee*adj), pro, k, note:P.note||"",
+             method:"bmr", bmr:Math.round(bmr), tdee:Math.round(tdee), dir, adj };
+  }
+  return { kcal:Math.round(W*(P.kcal||33)), pro, k, note:P.note||"", method:"coef", dir };
 }
-// 份量按 60kg 基准等比缩放：仅缩放“g”计量的份量与对应蛋白值，个/根/碗/ml 不动
+// 份量缩放：按「目标热量 ÷ 方案在 60kg 下的基准热量」等比缩放。
+// 系数法时该比值恰等于 体重/60，与旧行为完全一致。
+// 仅缩放“g”计量的份量与对应蛋白值，个/根/碗/ml 不动。
 function dietScaler(){
-  const F = Math.max(.5, DB.settings.weight/60);
+  const F = Math.max(.5, dietTargets().kcal / ((mealsPlan().kcal || 33) * 60));
   const r10 = n => Math.max(10, Math.round(n/10)*10);
   const r5  = n => Math.max(5, Math.round(n/5)*5);
-  return {
+  return { F,
     portion: s => s.replace(/(\d+)(?=g)/g, (_,n)=> (n>=100? r10(n*F) : Math.round(n*F)) ),
     protein: (s, portion) => /\dg/.test(portion) && !/ml/.test(portion)
       ? s.replace(/(\d+)(?=g)/g, (_,n)=> r5(n*F)) : s
@@ -659,7 +695,7 @@ function renderDiet(){
   const M = plan.meals;
   const W = DB.settings.weight;
   const T = dietTargets(), SC = dietScaler();
-  const target = `≈${T.kcal-100}~${T.kcal+100} 千卡 · 蛋白 ${T.pro}g（${W}kg×${T.k}${T.note?" "+T.note:""}）`;
+  const target = `每天 ≈${T.kcal} 千卡 · 蛋白 ${T.pro}g（${T.method==="bmr" ? "BMR/TDEE" + (T.dir && T.dir !== "维持" ? " · " + T.dir : "") : W+"kg×"+T.k}${T.note?" "+T.note:""}）`;
   const st = dietMenuState();
   // 互斥分组：餐间菜单一组、采购/交换一组（原生 name 属性）；首次渲染默认仅第一餐展开
   const open = (k, dflt) => st[k] === undefined ? (dflt ? "open" : "") : (st[k] ? "open" : "");
@@ -681,7 +717,7 @@ function renderDiet(){
             ${m.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(SC.portion(r[1]))}</td><td><span class="tag">${esc(SC.protein(r[2], r[1]))}</span></td></tr>`).join("")}</table>
           </details>
         </div>`).join("")}
-      <details class="menu" name="diet-info" data-k="shop" ${open("shop")}><summary>每周采购 ≈ ¥${Math.round((plan.wcost||280)*DB.settings.weight/60/5)*5}</summary>
+      <details class="menu" name="diet-info" data-k="shop" ${open("shop")}><summary>每周采购 ≈ ¥${Math.round((plan.wcost||280)*SC.F/5)*5}</summary>
         <table><tr><th>品类</th><th>参考价</th></tr>
         ${plan.shop.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("")}</table>
       </details>
@@ -706,7 +742,7 @@ function toggleMeal(i, el){
   const cnt = document.getElementById("meal-cnt"), bar = document.getElementById("meal-bar");
   if(cnt) cnt.textContent = `${md}/${MM.length} 餐`;
   if(bar) bar.style.width = (MM.length?md/MM.length*100:0) + "%";
-  renderHeatmap();
+  updateHeatmapToday();
 }
 
 // ---------- 周计划（CSS 轮播，只读，显示当前计划） ----------
@@ -820,14 +856,45 @@ function delEx(id){
 function renderSet(){
   const s = DB.settings, bmi = s.weight/((s.height/100)**2);
   const hmOn = s.showHeatmap !== false;
+  const dt = dietTargets();
+  const tw = +s.targetWeight || s.weight;
+  const hasTgt = Math.abs(tw - s.weight) >= 0.05;
+  const bmiOf = w => w / ((s.height/100)**2);
+  const hM2r = (s.height/100) ** 2;
+  const wRange = { lo: Math.round(BMI_ABS_MIN*hM2r), hi: Math.round(BMI_ABS_MAX*hM2r) };
+  const tRange = { lo: Math.round(BMI_HEALTHY_MIN*hM2r*10)/10, hi: Math.round(BMI_HEALTHY_MAX*hM2r*10)/10 };
+  const tgtLine = hasTgt ? `目标 ${tw}kg（BMI ${bmiOf(tw).toFixed(1)}，${bmiTag(bmiOf(tw))}）` : "";
+  const gap = dt.kcal - (dt.tdee || dt.kcal);
+  const gapTxt = dt.method !== "bmr" ? "" : (dt.dir === "维持" ? "与消耗持平" : `${dt.dir} ${gap > 0 ? "+" : "−"}${Math.abs(gap)}`);
+  const dtLine = dt.method === "bmr"
+    ? `BMR ${dt.bmr} · TDEE ${dt.tdee}（中度活动 ×${ACTIVITY}）`
+    : `按方案系数估算（填性别与年龄可用 BMR/TDEE 更精确）`;
+  const eatLine = `每天吃 ≈${dt.kcal} 千卡${gapTxt ? "（" + gapTxt + "）" : ""} · 蛋白 ${dt.pro}g（${dt.k}g/kg）`;
+  // 目标方向 vs 当前方案：不一致时红色警示（不自动切换，提示用户重新定制或手动调整）
+  const planDir = mealDirOf(mealsPlan());
+  const planDirTrain = (activePlan() && activePlan().dir) || null;
+  const offParts = [];
+  if(planDir !== dt.dir) offParts.push("饮食方案偏" + planDir);
+  if(planDirTrain && planDirTrain !== dt.dir) offParts.push("周计划偏" + planDirTrain);
+  const warnLine = (dt.dir !== "维持" && offParts.length)
+    ? `${offParts.join("、")}，与「${dt.dir}」目标不符，请注意周计划和饮食方案匹配度`
+    : "";
   document.getElementById("p-set").innerHTML = `
     <div class="card" style="margin-bottom:12px">
       <h2>个人数据</h2>
       <div class="frow">
         <label>身高 cm<input id="setH" type="number" value="${s.height}"></label>
-        <label>体重 kg<input id="setW" type="number" value="${s.weight}" step="0.1"></label>
+        <label>体重 kg<input id="setW" type="number" value="${s.weight}" step="0.1" min="${wRange.lo}" max="${wRange.hi}"></label>
       </div>
-      <p class="meta">BMI ${bmi.toFixed(1)} · 蛋白目标 ${Math.round(s.weight*mealsPlan().pro)}g/天</p>
+      <div class="frow">
+        <label>年龄<input id="setA" type="number" value="${s.age}"></label>
+        <label>性别<select id="setS"><option value="none"${s.sex==="none"?' selected':""}>不透露</option><option value="male"${s.sex==="male"?' selected':""}>男</option><option value="female"${s.sex==="female"?' selected':""}>女</option></select></label>
+        <label>目标体重 kg<input id="setTW" type="number" value="${s.targetWeight}" step="0.1" min="${tRange.lo}" max="${tRange.hi}"></label>
+      </div>
+      <p class="meta">BMI ${bmi.toFixed(1)}（${bmiTag(bmi)}）${tgtLine ? " · " + tgtLine : ""}</p>
+      <p class="meta">${dtLine}</p>
+      <p class="meta">${eatLine}</p>
+      ${warnLine ? `<p class="meta" style="margin-top:6px;color:#a33">${warnLine}</p>` : ""}
     </div>
     <div class="card" style="margin-bottom:12px">
       <h2>计划管理</h2>
@@ -851,9 +918,9 @@ function renderSet(){
             ${gid===s.goal?'<button class="btn sm" disabled style="cursor:default;border-color:var(--accent);color:var(--accent);background:var(--accent-soft)">当前</button>':`<button class="btn sm" onclick="setGoal('${gid}')">启用</button>`}
             ${Object.keys(DB.meals).length>1?`<button class="btn sm" onclick="delMeal('${gid}')">删除</button>`:""}
           </div>
-          <div style="font-size:11px;color:var(--mut);margin-top:2px">≈${p.kcal} 千卡/kg · 蛋白 ${p.pro}g/kg${p.note?" · "+esc(p.note):""} · ${p.meals.length} 餐</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:2px">≈${p.kcal} 千卡/kg · 蛋白 ${p.pro}g/kg${p.note?" · "+esc(p.note):""} · ${p.meals.length} 餐 · ${mealDirOf(p)}</div>
         </div>`).join("")}
-      <p class="meta" style="margin-top:8px">${(()=>{const T=dietTargets();return `按 ${s.weight}kg 折算：≈${T.kcal-100}~${T.kcal+100} 千卡 · 蛋白 ${T.pro}g/天`})()}</p>
+      <p class="meta" style="margin-top:8px">每天 ≈${dt.kcal} 千卡 · 蛋白 ${dt.pro}g/天</p>
     </div>
     <div class="card" style="margin-bottom:12px">
       <h2>热力图</h2>
@@ -889,14 +956,45 @@ function renderSet(){
         <b style="color:var(--ink)">恢复</b>：酸痛 2-3 天正常；睡眠 7.5h+；水 2000ml+；体重每周 +0.2~0.5kg。</p>
       </details>
     </div>`;
-  document.getElementById("hdr").textContent = `${s.height} / ${s.weight} · BMI ${bmi.toFixed(1)}`;
+  document.getElementById("hdr").textContent = (()=>{
+    const tw2 = +s.targetWeight || s.weight;
+    if(Math.abs(tw2 - s.weight) >= 0.05){
+      const tb = tw2 / ((s.height/100)**2);
+      return `${s.height} · ${s.weight}→${tw2}kg · BMI ${bmi.toFixed(1)}→${tb.toFixed(1)}`;
+    }
+    return `${s.height} · ${s.weight}kg · BMI ${bmi.toFixed(1)}`;
+  })();
   document.getElementById("setH").onchange = saveSet;
   document.getElementById("setW").onchange = saveSet;
+  document.getElementById("setA").onchange = saveSet;
+  document.getElementById("setS").onchange = saveSet;
+  document.getElementById("setTW").onchange = saveSet;
 }
 function saveSet(){
-  DB.settings.height = clamp(+document.getElementById("setH").value || 172, 100, 250, 172);
-  DB.settings.weight = clamp(+document.getElementById("setW").value || 60, 25, 300, 60);
-  save(); renderSet(); renderDiet();
+  // 先校验：任何一项不合法就整体放弃本次修改（不夹紧、不落库，也不会触发后续弹框）
+  const hIn = clamp(+document.getElementById("setH").value || 172, 100, 250, 172);
+  const hM2 = (hIn / 100) ** 2;
+  const wIn = +document.getElementById("setW").value || 60;
+  const wLo = Math.round(BMI_ABS_MIN * hM2), wHi = Math.round(BMI_ABS_MAX * hM2);
+  if(wIn < wLo || wIn > wHi){
+    alert(`体重需在 ${wLo}–${wHi} kg 之间。\n（超出此范围请检查是否输入有误）\n本次修改未保存。`);
+    renderSet(); return;
+  }
+  const tIn = +document.getElementById("setTW").value || wIn;
+  const tLo = Math.round(BMI_HEALTHY_MIN * hM2 * 10) / 10, tHi = Math.round(BMI_HEALTHY_MAX * hM2 * 10) / 10;
+  if(tIn < tLo || tIn > tHi){
+    alert(`目标体重需在 ${tLo}–${tHi} kg 之间（BMI ${BMI_HEALTHY_MIN}–${BMI_HEALTHY_MAX}，健康区间）。\n本次修改未保存。`);
+    renderSet(); return;
+  }
+  // 校验通过才落库
+  DB.settings.height = hIn;
+  DB.settings.weight = wIn;
+  DB.settings.age = clamp(+document.getElementById("setA").value || 25, 10, 100, 25);
+  const sx = document.getElementById("setS").value;
+  DB.settings.sex = ["male","female","none"].includes(sx) ? sx : "none";
+  DB.settings.targetWeight = tIn;
+  save();
+  renderSet(); renderDiet();
 }
 function setRange(w){ DB.settings.hmWeeks = w; save(); renderHeatmap(); renderSet(); }
 // 首页热力图显示/隐藏（默认显示）
@@ -922,38 +1020,51 @@ function delMeal(gid){
 
 // --- 计划编辑器（Dialog 弹窗，改动实时生效，保存后统一刷新） ---
 let planDlgPid = null;
-function editPlan(pid){
+function editPlan(pid, isNew){
   planDlgPid = pid;
-  openDlg("编辑计划", planEditor(pid, DB.plans[pid]),
-    ()=>{ planDlgPid = null; renderSet(); renderToday(); renderWeek(); renderHeatmap(); });
+  openDlg(isNew ? "新建计划" : "编辑计划", planEditor(pid, DB.plans[pid]),
+    ()=>{ planDlgPid = null; renderSet(); renderToday(); renderWeek(); renderHeatmap(); },
+    isNew ? ()=>{                       // 取消新建：删除这个临时计划，当前计划保持不变
+      planDlgPid = null;
+      delete DB.plans[pid];
+      if(DB.activePlanId === pid) DB.activePlanId = Object.keys(DB.plans)[0];
+      save(); renderSet(); renderToday(); renderWeek(); renderHeatmap();
+    } : null);
 }
 function refreshPlanDlg(){
   if(planDlgPid) refreshDlg("编辑计划", planEditor(planDlgPid, DB.plans[planDlgPid]));
 }
 function usePlan(pid){
-  DB.activePlanId = pid;   // dayRec 会按新计划重建当天动作快照，并保留已完成状态与饮食打卡
+  if(pid === DB.activePlanId) return;
+  // 今天已有打卡时先确认：切换会按新计划重建今天的动作列表（同名动作保留打卡状态，其余会消失）
+  const rec = DB.days[dkey(today())];
+  const doneToday = (rec && Array.isArray(rec.ex)) ? rec.ex.filter(x=>x.done).length : 0;
+  if(doneToday && !confirm(`今天已打卡 ${doneToday} 个动作。\n切换计划后，今天的动作列表会按新计划重建：\n· 两个计划都有的动作，打卡状态保留\n· 只在新计划里的动作，从零开始\n· 只在旧计划里的动作，会从今天消失\n\n确认切换？`)) return;
+  DB.activePlanId = pid;
   save(); planDlgPid = null;
-  renderSet(); renderToday(); renderWeek(); renderHeatmap(); startAnim();
+  renderSet(); renderToday(); renderWeek(); updateHeatmapToday(); startAnim();
 }
 function delPlan(pid){
   if(pid===DB.activePlanId){ alert("不能删除当前启用的计划"); return; }
+  // 有历史打卡记录引用的计划不允许删除，否则历史热力图会丢失计划信息
+  const used = Object.values(DB.days).filter(r=>r && r.planId === pid).length;
+  if(used){ alert(`该计划有 ${used} 天的历史打卡记录，不能删除。\n如需彻底清空，请使用「设置 → 重置数据」。`); return; }
   if(confirm("删除计划？")){ delete DB.plans[pid]; save(); renderSet(); }
 }
 function newPlan(){
-  openDlg("新建计划", `<div class="frow"><label>计划名称<input id="np-name" value="我的计划"></label></div>`, ()=>{
-    const name = document.getElementById("np-name").value.trim();
-    if(!name) return;
-    const pid = uid("pl");
-    DB.plans[pid] = { name, days: Array.from({length:7},(_,i)=>({title:"第"+(i+1)+"天", exIds:[]})) };
-    DB.activePlanId = pid;               // 新建即启用（空计划，进入编辑器添加动作）
-    save();
-    renderSet(); renderToday(); renderWeek(); renderHeatmap(); startAnim();
-    editPlan(pid);                        // 直接进入编辑器
-  });
+  // 只新增、不切换当前计划；直接打开编辑器（名称 + 7 天内容一起编辑，取消则回滚）
+  const pid = uid("pl");
+  DB.plans[pid] = { name:"我的计划", dir:"", days: Array.from({length:7},(_,i)=>({title:"第"+(i+1)+"天", exIds:[]})) };
+  save();
+  editPlan(pid, true);
 }
 function planEditor(pid, p){
   return `
     <div class="frow"><label>计划名称<input value="${esc(p.name)}" onchange="renamePlan('${pid}', this.value)"></label></div>
+    <div class="frow"><label>计划方向<select onchange="setPlanDir('${pid}', this.value)">
+      <option value=""${p.dir?"":" selected"}>未指定</option>
+      ${DIRS.map(d=>`<option value="${d}"${p.dir===d?" selected":""}>${d}</option>`).join("")}
+    </select></label></div>
     ${p.days.map((day,di)=>`
       <div style="margin-top:10px">
         <div style="display:flex;align-items:center;gap:6px">
@@ -981,9 +1092,10 @@ function planEditor(pid, p){
       </div>`).join("")}`;
 }
 function afterPlanChange(pid){
-  save(); renderSet(); renderToday(); renderWeek(); refreshPlanDlg();
+  save(); renderSet(); renderToday(); renderWeek(); updateHeatmapToday(); refreshPlanDlg();
 }
 function renamePlan(pid, v){ if(v.trim()){ DB.plans[pid].name = v.trim(); afterPlanChange(pid); } }
+function setPlanDir(pid, v){ DB.plans[pid].dir = DIRS.includes(v) ? v : ""; afterPlanChange(pid); }
 function renameDay(pid, di, v){ if(v.trim()){ DB.plans[pid].days[di].title = v.trim(); afterPlanChange(pid); } }
 function addEx(pid, di, id){ if(!id) return; DB.plans[pid].days[di].exIds.push(id); afterPlanChange(pid); }
 function removeEx(pid, di, i){ DB.plans[pid].days[di].exIds.splice(i,1); afterPlanChange(pid); }
@@ -1015,6 +1127,7 @@ function renderHeatmap(){
     for(let d=1; d<=dim; d++){
       const date = new Date(Date.UTC(y, m, d)), ds = dkey(date);
       const b = document.createElement("button");
+      b.dataset.ds = ds;                 // 供打卡后原地更新用
       if(date.getTime() > T){ b.className = "future"; }
       else {
         const rec = DB.days[ds];
@@ -1034,6 +1147,12 @@ function renderHeatmap(){
     wrap.scrollLeft = wasAtEnd ? wrap.scrollWidth : Math.min(prevLeft, wrap.scrollWidth - wrap.clientWidth);
   });
 }
+// 打卡后只更新"今天"那一格，避免整块热力图（最多 12 个月）重绘
+function updateHeatmapToday(){
+  const ds = dkey(today());
+  const b = document.querySelectorAll('#hm button[data-ds="' + ds + '"]')[0];
+  if(b) b.className = "l" + levelOf(DB.days[ds]) + " today";
+}
 function showDay(ds){
   const pop = document.getElementById("daypop");
   const rec = DB.days[ds];
@@ -1041,8 +1160,8 @@ function showDay(ds){
   let planName = "";
   let list = [];
   if(rec && rec.ex){
-    const p = DB.plans[rec.planId] || activePlan();
-    planName = p ? p.name : "";
+    const p = DB.plans[rec.planId];       // 严格按记录里的 planId 取历史计划，不回退到当前计划
+    planName = p ? p.name : (rec.planId ? "(已删除的计划)" : "");
     list = rec.ex.map(x=>{ const e = x.id?exById(x.id):null; return { n: e?esc(e.name):"(已删除动作)", done:x.done }; });
   } else if(rec && rec.meals && rec.meals.some(Boolean)){
     planName = "仅饮食";
@@ -1094,11 +1213,21 @@ function importData(e){
 const SAFE_KEY = /^[a-z0-9-]{1,40}$/;
 function sanitizeBackup(o){
   const fixKey = (k, prefix) => SAFE_KEY.test(k) ? k : prefix + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  // 体重 / 目标体重按身高换算的 BMI 区间夹紧（与 saveSet 的校验口径保持一致）
+  const sH  = clamp(o.settings&&o.settings.height,100,250,172);
+  const sH2 = (sH/100) ** 2;
+  const wLo = Math.round(BMI_ABS_MIN*sH2), wHi = Math.round(BMI_ABS_MAX*sH2);
+  const tLo = Math.round(BMI_HEALTHY_MIN*sH2*10)/10, tHi = Math.round(BMI_HEALTHY_MAX*sH2*10)/10;
+  const sW  = clamp(o.settings&&o.settings.weight, wLo, wHi, Math.min(wHi, Math.max(wLo, 60)));
+  const sT  = clamp(o.settings&&o.settings.targetWeight, tLo, tHi, Math.min(tHi, Math.max(tLo, sW)));
   const out = { v:1, schemaVersion:+o.schemaVersion||6, days:{}, exercises:{}, plans:{}, meals:{},
-    settings:{ height:clamp(o.settings&&o.settings.height,100,250,172), weight:clamp(o.settings&&o.settings.weight,25,300,60),
-      goal:SAFE_KEY.test(o.settings&&o.settings.goal)?o.settings.goal:"muscle", hmWeeks:[13,26,52].includes(o.settings&&o.settings.hmWeeks)?o.settings.hmWeeks:13,
+    settings:{ height:sH, weight:sW,
+      age:clamp(o.settings&&o.settings.age,10,100,25),
+      sex:["male","female","none"].includes(o.settings&&o.settings.sex)?o.settings.sex:"none",
+      targetWeight:sT,
+      goal:(o.settings && SAFE_KEY.test(o.settings.goal))?o.settings.goal:"muscle", hmWeeks:[13,26,52].includes(o.settings&&o.settings.hmWeeks)?o.settings.hmWeeks:13,
       showHeatmap:(o.settings&&o.settings.showHeatmap)!==false },
-    activePlanId:SAFE_KEY.test(o.activePlanId)?o.activePlanId:"" };
+    activePlanId:(o.activePlanId && SAFE_KEY.test(o.activePlanId))?o.activePlanId:"" };
   Object.entries(o.exercises && typeof o.exercises==="object" ? o.exercises : {}).forEach(([k,e])=>{
     if(!e || typeof e!=="object") return;
     out.exercises[fixKey(k,"ex")] = { name:str(e.name,20)||"未命名", fig:CUSTOM_FIGS.includes(e.fig)?e.fig:"custom",
@@ -1110,7 +1239,7 @@ function sanitizeBackup(o){
     const days = p.days.slice(0,7).map(d=>({ title:str(d&&d.title,10)||"训练日",
       exIds:(Array.isArray(d&&d.exIds)?d.exIds:[]).map(x=>typeof x==="string"&&SAFE_KEY.test(x)?x:null) }));
     while(days.length<7) days.push({ title:"休息日", exIds:[] });
-    out.plans[fixKey(k,"pl")] = { name:str(p.name,16)||"未命名计划", days };
+    out.plans[fixKey(k,"pl")] = { name:str(p.name,16)||"未命名计划", dir:DIRS.includes(p.dir)?p.dir:"", days };
   });
   Object.entries(o.meals && typeof o.meals==="object" ? o.meals : {}).forEach(([k,mv])=>{
     if(!mv || typeof mv!=="object" || !Array.isArray(mv.meals)) return;
@@ -1121,7 +1250,7 @@ function sanitizeBackup(o){
       shop:(Array.isArray(mv.shop)?mv.shop:[]).filter(r=>Array.isArray(r)).slice(0,10).map(r=>[str(r[0],24),str(r[1],8)]) };
   });
   Object.entries(o.days && typeof o.days==="object" ? o.days : {}).forEach(([k,v])=>{
-    if(SAFE_KEY.test(k) && v && typeof v==="object") out.days[k] = { planId:SAFE_KEY.test(v.planId)?v.planId:"", ex:Array.isArray(v.ex)?v.ex.filter(x=>x&&typeof x==="object").map(x=>({id:x.id&&SAFE_KEY.test(x.id)?x.id:null,done:!!x.done})):[], meals:Array.isArray(v.meals)?v.meals.slice(0,8).map(Boolean):[] };
+    if(SAFE_KEY.test(k) && v && typeof v==="object") out.days[k] = { planId:(v.planId && SAFE_KEY.test(v.planId))?v.planId:"", ex:Array.isArray(v.ex)?v.ex.filter(x=>x&&typeof x==="object").map(x=>({id:x.id&&SAFE_KEY.test(x.id)?x.id:null,done:!!x.done})):[], meals:Array.isArray(v.meals)?v.meals.slice(0,8).map(Boolean):[] };
   });
   if(!out.plans[out.activePlanId]) out.activePlanId = Object.keys(out.plans)[0] || "";
   if(!out.meals[out.settings.goal]) out.settings.goal = Object.keys(out.meals)[0] || "muscle";
@@ -1166,9 +1295,10 @@ function applyCustomPackage(pkg){
     }));
     while(days.length < 7) days.push({ title:"休息日", exIds:[...restFill] });
     const name = str(p.name, 16) || "AI 定制计划";
+    const dirVal = DIRS.includes(p.dir) ? p.dir : "";
     const existId = planByName[name];
-    if(existId) updPlans.push([existId, days]);
-    else { const id = uid("pl"); newPlans[id] = { name, days }; planByName[name] = id; }
+    if(existId) updPlans.push([existId, days, dirVal]);
+    else { const id = uid("pl"); newPlans[id] = { name, dir:dirVal, days }; planByName[name] = id; }
   });
 
   // 3. 饮食方案（可选）：同名 label 更新（幂等）；系数夹紧到安全区间；confirm 前不写 DB
@@ -1216,13 +1346,20 @@ function applyCustomPackage(pkg){
 
   // 4. 个人数据（可选，夹紧）——确认后才写入，取消则完全不动
   if(pkg.settings && typeof pkg.settings === "object"){
-    DB.settings.height = clamp(pkg.settings.height, 100, 250, DB.settings.height);
-    DB.settings.weight = clamp(pkg.settings.weight, 25, 300, DB.settings.weight);
+    const pH = clamp(pkg.settings.height, 100, 250, DB.settings.height);
+    const p2 = (pH/100) ** 2;
+    const pwLo = Math.round(BMI_ABS_MIN*p2), pwHi = Math.round(BMI_ABS_MAX*p2);
+    const ptLo = Math.round(BMI_HEALTHY_MIN*p2*10)/10, ptHi = Math.round(BMI_HEALTHY_MAX*p2*10)/10;
+    DB.settings.height = pH;
+    DB.settings.weight = clamp(pkg.settings.weight, pwLo, pwHi, DB.settings.weight);
+    DB.settings.age = clamp(pkg.settings.age, 10, 100, DB.settings.age);
+    if(["male","female","none"].includes(pkg.settings.sex)) DB.settings.sex = pkg.settings.sex;
+    DB.settings.targetWeight = clamp(pkg.settings.targetWeight, ptLo, ptHi, DB.settings.targetWeight);
   }
 
   Object.assign(DB.exercises, newEx);
   Object.assign(DB.plans, newPlans);
-  updPlans.forEach(([pid, days])=>{ DB.plans[pid].days = days; });
+  updPlans.forEach(([pid, days, dirVal])=>{ DB.plans[pid].days = days; if(dirVal) DB.plans[pid].dir = dirVal; });
   if(plN) DB.activePlanId = Object.keys(newPlans)[0];
   else if(plU && !updPlans.some(([pid])=>pid===DB.activePlanId)) DB.activePlanId = updPlans[0][0];
   if(mealObj){
@@ -1489,7 +1626,7 @@ function drawShareCard(){
   rr2(PAD, y, W-PAD*2, dietH, 24);
   drawTitle(`饮食方案 · ${MP.label}`, `${mealDone}/${MM.length} 餐`);
   ctx.fillStyle = C.mut; ctx.font = font(22);
-  ctx.fillText(`≈${T.kcal-100}~${T.kcal+100} 千卡 · 蛋白 ${T.pro}g/天（按 ${DB.settings.weight}kg 折算）`, PAD+34, y+92);
+  ctx.fillText(`每天 ≈${T.kcal} 千卡 · 蛋白 ${T.pro}g/天`, PAD+34, y+92);
   cy = y + 136;
   MM.forEach(m=>{
     ctx.fillStyle = C.accent; ctx.font = font(26,700); ctx.fillText(m.n, PAD+40, cy);
