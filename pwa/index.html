@@ -26,7 +26,8 @@
   header .r { font-size:11px; color:var(--mut); }
 
   .hmwrap { padding:10px 16px 4px; }
-  .hm { display:flex; gap:9px; width:max-content; max-width:100%; margin:0 auto; overflow-x:auto; }
+  .hm { display:flex; gap:9px; width:max-content; max-width:100%; margin:0 auto; overflow-x:auto; padding-top: 4px; }
+  .mlab{font-size: 10px;}
   .mcol { display:flex; flex-direction:column; gap:4px; }
   .mgrid { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,13px); grid-auto-columns:13px; gap:3px; }
   .hm button { width:13px; height:13px; padding:0; border:none; cursor:pointer; background:var(--g0); }
@@ -110,7 +111,7 @@
   .tag { color:var(--accent); font-size:10.5px; }
 
   /* 库 / 编辑器 */
-  .btn { border:1px solid var(--line); background:var(--card); padding:7px 12px; font-size:12px; cursor:pointer; color:var(--ink); }
+  .btn { border:1px solid var(--line); background:var(--card); padding:7px 12px; font-size:12px; cursor:pointer; color:var(--ink); font-weight:normal; }
   .btn.acc { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
   .btn.sm { padding:4px 8px; font-size:11px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
@@ -461,6 +462,7 @@ let DB = loadDB() || { v:1, schemaVersion:6, days:{},
   if(!DB.plans[DB.activePlanId]) DB.activePlanId = "pl-muscle";
   if(!DB.settings) DB.settings = {height:172, weight:60, hmWeeks:13, goal:"muscle"};
   if(!DB.settings.goal) DB.settings.goal = "muscle";
+  if(typeof DB.settings.showHeatmap !== "boolean") DB.settings.showHeatmap = true;   // 默认显示首页热力图
 })();
 function save(){
   // 约定：打卡类交互=原地 DOM 更新（不重绘防滚动），配置类=整面板重绘；DB 字符串进模板必过 esc()
@@ -572,10 +574,9 @@ function renderToday(){
           const e = exById(x.id);
           return e ? exRow(e, x.done, true, `toggleEx(${i}, this)`) : "";
         }).join("") : '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">今天没有安排动作，可在 设置 → 计划管理 中添加</div>'}
-        <div class="hint" style="font-size:10.5px;color:var(--mut);padding-top:8px">休息日可在 设置 → 计划管理 中安排动作 ｜ 点击动作打卡</div>
       </div>
       <div class="card" style="margin-top:12px">
-        <h2>饮食打卡 · ${esc(MP.label)}<small><span id="meal-cnt">${md}/${MM.length} 餐</span> · ≈${T.kcal-100}~${T.kcal+100} 千卡</small></h2>
+        <h2>${esc(MP.label)}<small><span id="meal-cnt">${md}/${MM.length} 餐</span> · ≈${T.kcal-100}~${T.kcal+100} 千卡</small></h2>
         <div class="bar"><b id="meal-bar" style="width:${MM.length?md/MM.length*100:0}%"></b></div>
         <div style="margin-top:4px">
           ${MM.map((m,i)=>`
@@ -649,10 +650,8 @@ function dietMenuState(){
   return st;
 }
 function renderDiet(){
-  const d = today(), rec = dayRec(dkey(d), dayIdxOf(d));
   const plan = mealsPlan();
   const M = plan.meals;
-  const md = rec.meals.filter(Boolean).length;
   const W = DB.settings.weight;
   const T = dietTargets(), SC = dietScaler();
   const target = `≈${T.kcal-100}~${T.kcal+100} 千卡 · 蛋白 ${T.pro}g（${W}kg×${T.k}${T.note?" "+T.note:""}）`;
@@ -662,9 +661,7 @@ function renderDiet(){
   document.getElementById("p-diet").innerHTML = `
     <div class="p-head">
       <div class="card" style="margin-bottom:12px">
-        <h2>今日饮食 · ${esc(plan.label)}<small>${md}/${M.length} 餐 · ${target}</small></h2>
-        <div class="meta">按当前体重 ${W}kg 折算 · 变更后在「设置」更新</div>
-        <div class="bar"><b style="width:${md/M.length*100}%"></b></div>
+        <h2>${esc(plan.label)}<small>${target}</small></h2>
       </div>
     </div>
     <div class="p-list">
@@ -744,7 +741,7 @@ function renderLib(){
         <div class="chips" style="margin-top:8px">
           ${["全部",...parts].map(p=>`<span class="chip" style="cursor:pointer;${libPart===p?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setLibPart('${p}')">${p}</span>`).join("")}
         </div>
-        <div style="margin-top:10px"><button class="btn acc" onclick="newEx()">＋ 新增自定义动作</button></div>
+        <div style="margin-top:10px"><button class="btn" onclick="newEx()">＋ 新增自定义动作</button></div>
       </div>
     </div>
     <div class="p-list">
@@ -765,11 +762,11 @@ function renderLib(){
               <div class="sets">${esc(x.sets)}</div>
               <div class="pts-line">${esc(x.part)} · ${esc(x.equip)} ｜ ${esc(x.points)}</div></div>
             <div style="display:flex;gap:8px">
-              <button class="btn sm acc" onclick="editEx('${id}')">编辑</button>
+              <button class="btn sm" onclick="editEx('${id}')">编辑</button>
               <button class="btn sm" onclick="delEx('${id}')">删除</button>
             </div>
           </div>`).join("")
-        : '<div class="meta" style="padding:8px 0">当前筛选下没有自定义动作，点上方「＋ 新增」创建。图形默认为通用持铃姿势，名称/组次/要点为自定义文字。</div>'}
+        : '<div class="meta" style="padding:8px 0">当前筛选下没有自定义动作，点上方「＋ 新增」创建。</div>'}
       </div>
     </div>`;
   startAnim();
@@ -817,6 +814,7 @@ function delEx(id){
 // ---------- 设置（含计划编辑器） ----------
 function renderSet(){
   const s = DB.settings, bmi = s.weight/((s.height/100)**2);
+  const hmOn = s.showHeatmap !== false;
   document.getElementById("p-set").innerHTML = `
     <div class="card" style="margin-bottom:12px">
       <h2>个人数据</h2>
@@ -831,21 +829,21 @@ function renderSet(){
       ${Object.entries(DB.plans).map(([pid,p])=>`
         <div style="padding:10px 0;border-bottom:1px solid var(--line)">
           <div style="display:flex;align-items:center;gap:8px">
-            <b style="flex:1;font-size:13px">${esc(p.name)}${pid===DB.activePlanId?' <span class="tag">当前</span>':""}</b>
-            ${pid===DB.activePlanId?"":`<button class="btn sm" onclick="usePlan('${pid}')">启用</button>`}
+            <b style="flex:1;font-size:13px">${esc(p.name)}</b>
+            ${pid===DB.activePlanId?'<button class="btn sm" disabled style="cursor:default;border-color:var(--accent);color:var(--accent);background:var(--accent-soft)">当前</button>':`<button class="btn sm" onclick="usePlan('${pid}')">启用</button>`}
             <button class="btn sm" onclick="editPlan('${pid}')">编辑</button>
             ${Object.keys(DB.plans).length>1?`<button class="btn sm" onclick="delPlan('${pid}')">删除</button>`:""}
           </div>
         </div>`).join("")}
-      <div style="margin-top:10px"><button class="btn acc" onclick="newPlan()">＋ 新建计划</button></div>
+      <div style="margin-top:10px"><button class="btn" onclick="newPlan()">＋ 新建计划</button></div>
     </div>
     <div class="card" style="margin-bottom:12px">
       <h2>饮食方案管理</h2>
       ${Object.entries(DB.meals).map(([gid,p])=>`
         <div style="padding:10px 0;border-bottom:1px solid var(--line)">
           <div style="display:flex;align-items:center;gap:8px">
-            <b style="flex:1;font-size:13px">${esc(p.label)}${gid===s.goal?' <span class="tag">当前</span>':""}</b>
-            ${gid===s.goal?"":`<button class="btn sm" onclick="setGoal('${gid}')">启用</button>`}
+            <b style="flex:1;font-size:13px">${esc(p.label)}</b>
+            ${gid===s.goal?'<button class="btn sm" disabled style="cursor:default;border-color:var(--accent);color:var(--accent);background:var(--accent-soft)">当前</button>':`<button class="btn sm" onclick="setGoal('${gid}')">启用</button>`}
             ${Object.keys(DB.meals).length>1?`<button class="btn sm" onclick="delMeal('${gid}')">删除</button>`:""}
           </div>
           <div style="font-size:11px;color:var(--mut);margin-top:2px">≈${p.kcal} 千卡/kg · 蛋白 ${p.pro}g/kg${p.note?" · "+esc(p.note):""} · ${p.meals.length} 餐</div>
@@ -853,11 +851,22 @@ function renderSet(){
       <p class="meta" style="margin-top:8px">${(()=>{const T=dietTargets();return `按 ${s.weight}kg 折算：≈${T.kcal-100}~${T.kcal+100} 千卡 · 蛋白 ${T.pro}g/天`})()}</p>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <h2>热力图时间范围</h2>
-      <div class="frow" style="margin-top:4px">
+      <h2>热力图</h2>
+      <p class="meta" style="margin:8px 0 4px">首页显示</p>
+      <div class="frow" style="margin-top:0">
+        ${[[true,"显示"],[false,"隐藏"]].map(([v,l])=>
+          `<b class="btn" style="flex:1;text-align:center;${hmOn===v?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setHeatmap(${v})">${l}</b>`).join("")}
+      </div>
+      <p class="meta" style="margin:10px 0 4px">时间范围</p>
+      <div class="frow" style="margin-top:0">
         ${[[13,"近3个月"],[26,"近6个月"],[52,"近1年"]].map(([w,l])=>
           `<b class="btn" style="flex:1;text-align:center;${s.hmWeeks===w?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setRange(${w})">${l}</b>`).join("")}
       </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h2>添加到桌面</h2>
+      <p class="meta" style="margin:6px 0 8px">${installHint()}</p>
+      <button class="btn" onclick="installApp()">添加到桌面</button>
     </div>
     <div class="card" style="margin-bottom:12px">
       <h2 style="margin-bottom:6px">数据备份</h2>
@@ -885,6 +894,15 @@ function saveSet(){
   save(); renderSet(); renderDiet();
 }
 function setRange(w){ DB.settings.hmWeeks = w; save(); renderHeatmap(); renderSet(); }
+// 首页热力图显示/隐藏（默认显示）
+function applyHeatmapVisibility(){
+  const wrap = document.getElementById("hmwrap");
+  if(!wrap) return;
+  const on = DB.settings.showHeatmap !== false;
+  wrap.style.display = on ? "" : "none";
+  if(on) renderHeatmap();
+}
+function setHeatmap(on){ DB.settings.showHeatmap = !!on; save(); applyHeatmapVisibility(); renderSet(); }
 function setGoal(g){ DB.settings.goal = g; save(); renderDiet(); renderSet(); }
 function delMeal(gid){
   const keys = Object.keys(DB.meals);
@@ -973,6 +991,7 @@ function moveEx(pid, di, i, dir){
 // ---------- 热力图（按月分列，自动定位今天） ----------
 function levelOf(rec){ if(!rec||!rec.ex||!rec.ex.length) return 0; const r = rec.ex.filter(x=>x.done).length/rec.ex.length; return r===0?0:r<0.34?1:r<0.67?2:r<1?3:4; }
 function renderHeatmap(){
+  if(DB.settings && DB.settings.showHeatmap === false) return;   // 首页热力图已隐藏则跳过渲染
   const hm = document.getElementById("hm");
   const prevLeft = hm.scrollLeft;
   const wasAtEnd = prevLeft <= 0 || prevLeft >= hm.scrollWidth - hm.clientWidth - 2;
@@ -1063,7 +1082,8 @@ function sanitizeBackup(o){
   const fixKey = (k, prefix) => SAFE_KEY.test(k) ? k : prefix + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   const out = { v:1, schemaVersion:+o.schemaVersion||6, days:{}, exercises:{}, plans:{}, meals:{},
     settings:{ height:clamp(o.settings&&o.settings.height,100,250,172), weight:clamp(o.settings&&o.settings.weight,25,300,60),
-      goal:SAFE_KEY.test(o.settings&&o.settings.goal)?o.settings.goal:"muscle", hmWeeks:[13,26,52].includes(o.settings&&o.settings.hmWeeks)?o.settings.hmWeeks:13 },
+      goal:SAFE_KEY.test(o.settings&&o.settings.goal)?o.settings.goal:"muscle", hmWeeks:[13,26,52].includes(o.settings&&o.settings.hmWeeks)?o.settings.hmWeeks:13,
+      showHeatmap:(o.settings&&o.settings.showHeatmap)!==false },
     activePlanId:SAFE_KEY.test(o.activePlanId)?o.activePlanId:"" };
   Object.entries(o.exercises && typeof o.exercises==="object" ? o.exercises : {}).forEach(([k,e])=>{
     if(!e || typeof e!=="object") return;
@@ -1220,16 +1240,14 @@ function renderAi(){
     <div class="p-list">
     <div class="card">
       <h2>第一步 · SKILL 契约<button class="btn sm" style="float:right" onclick="copySkill()">一键复制</button></h2>
-      <p class="meta" style="margin:6px 0 0">已包含数据格式、内置动作清单与安全护栏（约 ${skill.length} 字），任何大模型据此即可生成合法定制包。</p>
       <details class="menu"><summary>查看全文</summary>
         <pre style="font-family:ui-monospace,monospace;font-size:10.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--ink);">${esc(skill)}</pre>
       </details>
     </div>
     <div class="card">
       <h2>第二步 · 粘贴 AI 返回的 JSON</h2>
-      <textarea id="pkg-box" placeholder='粘贴 AI 生成的定制包 JSON（应以 {"kind":"hybh-custom", ...} 开头）' style="display:block;width:100%;height:200px;resize:vertical;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6"></textarea>
-      <div style="margin-top:8px"><button class="btn acc" onclick="importPkgText()">导入定制包</button></div>
-      <p class="meta" style="margin-top:6px">导入与现有数据并存：内置两套计划与两种饮食保留，可随时切换；重置数据即可恢复初始状态。</p>
+      <textarea id="pkg-box" placeholder='粘贴 AI 生成的定制包 JSON（应以 {"kind":"hybh-custom", ...} 开头）' style="display:block;width:100%;height:200px;resize:vertical;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;padding:6px;"></textarea>
+      <div style="margin-top:8px"><button class="btn" onclick="importPkgText()">导入定制包</button></div>
     </div>
     </div>`;
 }
@@ -1516,16 +1534,52 @@ function shareCard(){
 
 // ---------- tab 切换 + 启动 ----------
 // 切换时惰性重渲染目标面板（保证打卡后各页计数新鲜；AI 页除外，避免清掉粘贴中的 JSON）
+// 同时把当前 tab 写进 location.hash，刷新 / 前进后退都能停在同一页
 const TAB_RENDER = { today:renderToday, diet:renderDiet, week:renderWeek, lib:renderLib, set:renderSet };
+const TAB_NAMES = ["today","diet","week","lib","set","ai"];
+const tabFromHash = ()=>{
+  const h = (typeof location !== "undefined" && location.hash ? location.hash : "").replace(/^#/,"");
+  return TAB_NAMES.includes(h) ? h : "today";
+};
+function switchTab(p){
+  if(!TAB_NAMES.includes(p)) p = "today";
+  document.querySelectorAll("#nav b").forEach(x=>x.classList.toggle("on", x.dataset.p===p));
+  document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));
+  const panel = document.getElementById("p-"+p);
+  if(panel) panel.classList.add("on");
+  if(TAB_RENDER[p]) TAB_RENDER[p]();
+}
 document.querySelectorAll("#nav b").forEach(b=>{
   b.onclick = ()=>{
-    document.querySelectorAll("#nav b").forEach(x=>x.classList.remove("on"));
-    document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));
-    b.classList.add("on"); document.getElementById("p-"+b.dataset.p).classList.add("on");
-    if(TAB_RENDER[b.dataset.p]) TAB_RENDER[b.dataset.p]();
+    const p = b.dataset.p;
+    if(location.hash === "#"+p) switchTab(p);   // 已在同一 tab：直接重渲染
+    else location.hash = p;                      // 变更 hash，由 hashchange 统一切换
   };
 });
-function renderAll(){ renderToday(); renderDiet(); renderWeek(); renderLib(); renderSet(); renderAi(); renderHeatmap(); startAnim(); }
+window.addEventListener("hashchange", ()=>switchTab(tabFromHash()));
+function renderAll(){ renderToday(); renderDiet(); renderWeek(); renderLib(); renderSet(); renderAi(); applyHeatmapVisibility(); startAnim(); }
+
+// ---------- 安装引导（PWA 添加到桌面） ----------
+// 支持 beforeinstallprompt 的浏览器可一键安装；华为/鸿蒙等浏览器不提供，则降级为文字引导
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; renderSet(); });
+window.addEventListener("appinstalled", ()=>{ installEvt = null; alert("已添加到桌面，可从桌面图标直接打开。"); });
+function isStandalone(){ return navigator.standalone === true || !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches); }
+function installHint(){
+  if(isStandalone()) return "已在桌面模式下运行，无需重复添加。";
+  if(installEvt) return "当前浏览器支持一键安装，点下方按钮即可。";
+  return "当前浏览器未提供自动安装（华为 / 鸿蒙等浏览器常见）。请点浏览器菜单，选择「添加到桌面」或「添加到主屏幕」。";
+}
+function installApp(){
+  if(installEvt){
+    installEvt.prompt();
+    const done = ()=>{ installEvt = null; renderSet(); };
+    (installEvt.userChoice || Promise.resolve()).then(done, done);
+  } else {
+    alert("当前浏览器没有提供自动安装。\n请在浏览器菜单中选择「添加到桌面」或「添加到主屏幕」。");
+  }
+}
+switchTab(tabFromHash());   // 按 URL hash 恢复上次的 tab（默认「今日」）
 renderAll();
 </script>
 <script>

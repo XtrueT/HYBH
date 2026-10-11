@@ -1,5 +1,5 @@
 // H.Y.B.H Service Worker —— 单文件应用：cache-first 秒开 + 后台刷新
-const V = "hybh-v2";  // 发新版本时递增
+const V = "hybh-v12";  // 发新版本时递增
 const ASSETS = [
   "./",
   "./index.html",
