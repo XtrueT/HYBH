@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>隐私政策 · H.Y.B.H</title>
+<meta name="theme-color" content="#2f5d5a">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+  :root { --bg:#f2f3f2; --card:#ffffff; --ink:#1a1a1a; --mut:#8a8f8d; --line:#e4e6e4; --accent:#2f5d5a; --accent-soft:#e8efee; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body { background:var(--bg); color:var(--ink); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    height:100dvh; display:flex; flex-direction:column; overflow:hidden; font-size:13px; line-height:1.75; }
+  @media (min-width:720px){ body{ max-width:480px; margin:0 auto; box-shadow:0 0 24px rgba(0,0,0,.08); } }
+
+  header { flex-shrink:0; display:flex; justify-content:space-between; align-items:baseline; padding:18px 16px 8px; }
+  header .logo { font-size:17px; font-weight:800; letter-spacing:3px; }
+  header .r { font-size:11px; color:var(--mut); }
+
+  .pbar { flex-shrink:0; padding:0 16px 10px; }
+  .pbar a { display:block; font-size:13px; color:var(--accent); text-decoration:none; padding:10px 14px; border:1px solid var(--line); background:var(--card); }
+
+  .panel { flex:1; min-height:0; overflow-y:auto; padding:6px 16px 20px; }
+  .card { background:var(--card); box-shadow:0 1px 4px rgba(26,26,26,.08); padding:16px; }
+
+  h1 { font-size:16px; font-weight:700; }
+  h2 { font-size:13.5px; font-weight:700; margin:18px 0 6px; }
+  .sub { font-size:11.5px; color:var(--mut); margin-top:4px; }
+  .lead { background:var(--accent-soft); border-left:3px solid var(--accent); padding:10px 12px; margin-top:14px; }
+  ul { padding-left:18px; }
+  li { margin:4px 0; }
+  code { background:var(--bg); padding:1px 5px; border-radius:4px; font-size:12px; }
+  a { color:var(--accent); }
+
+  footer { flex-shrink:0; text-align:center; font-size:10px; color:var(--mut); padding:6px 16px; padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
+  footer .flinks { margin-top:2px; display:flex; justify-content:center; gap:2px; }
+  footer a { color:var(--mut); text-decoration:none; padding:8px 10px; }
+  footer a:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">H.Y.B.H</span>
+  <span class="r">隐私政策</span>
+</header>
+
+<div class="pbar"><a href="./">← 返回应用</a></div>
+
+<div class="panel">
+  <div class="card">
+    <h1>隐私政策</h1>
+    <div class="sub">最后更新：2026-10-12</div>
+
+    <div class="lead">
+      一句话概括：本应用不设账号、不上传你的训练与饮食数据；所有记录只保存在你自己的浏览器里。站点仅使用托管平台自带的、无 Cookie 的匿名访问统计。
+    </div>
+
+    <h2>1. 我们保存什么、保存在哪里</h2>
+    <ul>
+      <li>你在应用内产生的全部数据——身高体重、训练计划、饮食方案、每日打卡记录、自定义动作——都通过浏览器的 <code>localStorage</code> 保存在<strong>你自己的设备上</strong>，存储键名为 <code>dumbbell_fit_v1</code>。</li>
+      <li>这些数据<strong>不会上传到任何服务器</strong>，开发者无法查看、也无法获取。</li>
+      <li>清除浏览器数据、卸载浏览器，或使用应用内「设置 → 重置数据」，都会<strong>永久删除</strong>这些数据且无法恢复。建议定期使用「设置 → 导出 JSON」自行备份。</li>
+    </ul>
+
+    <h2>2. 我们不做的事</h2>
+    <ul>
+      <li>不要求注册或登录，不收集姓名、手机号、邮箱等身份信息。</li>
+      <li>不接入广告 SDK，不做用户画像，不进行跨站追踪。</li>
+      <li>不使用 Cookie 存储你的个人信息；应用仅使用 <code>localStorage</code> 做功能存储。</li>
+    </ul>
+
+    <h2>3. 第三方服务</h2>
+    <p>本应用部署在 Cloudflare Pages 上，因此访问会经过 Cloudflare 的网络：</p>
+    <ul>
+      <li><strong>Cloudflare Web Analytics</strong>：用于统计站点访问量（页面浏览、来源、大致地区、设备类型等）。该服务<strong>不使用 Cookie</strong>，不采集个人身份信息，仅提供聚合统计结果。</li>
+      <li>作为托管与加速服务商，Cloudflare 可能为安全与防滥用目的处理访问 IP 等基础网络信息，具体以其官方隐私政策为准。</li>
+    </ul>
+
+    <h2>4. 你的权利与选择</h2>
+    <ul>
+      <li><strong>导出</strong>：随时通过「设置 → 导出 JSON」取走全部数据。</li>
+      <li><strong>删除</strong>：通过「设置 → 重置数据」一键清空，或直接清除浏览器站点数据。</li>
+      <li><strong>拒绝统计</strong>：可用浏览器插件或隐私设置拦截 <code>static.cloudflareinsights.com</code>，不影响应用功能。</li>
+    </ul>
+
+    <h2>5. 免责声明</h2>
+    <p>本工具仅作健康生活参考，<strong>不构成医疗建议</strong>。如有不适请咨询专业人士。</p>
+
+    <h2>6. 变更与联系</h2>
+    <p>本政策如有更新，会在本页标注日期。</p>
+    <p>项目地址与问题反馈：<a href="https://github.com/XtrueT/HYBH" target="_blank" rel="noopener noreferrer">github.com/XtrueT/HYBH</a></p>
+  </div>
+</div>
+
+<footer>
+  <div class="flinks"><a href="https://github.com/XtrueT/HYBH" target="_blank" rel="noopener noreferrer">GitHub</a></div>
+</footer>
+
+</body>
+</html>

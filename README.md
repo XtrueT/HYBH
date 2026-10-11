@@ -1,6 +1,8 @@
 # H.Y.B.H 健身追踪
 
 > 训练与饮食打卡追踪 · 一个纯静态、可离线使用的 PWA
+>
+> 项目地址：<https://github.com/XtrueT/HYBH>
 
 H.Y.B.H 是一个面向个人的健身与饮食打卡工具。它把「训练计划 + 饮食方案 + 每日打卡 + 坚持热力图」整合在一个页面里，数据全部保存在本机浏览器，无需注册、无需后端。
 
@@ -93,10 +95,10 @@ node test.js
 
 ## 安全设计
 
-- **CSP**：`default-src 'none'` 起步，仅放行必要来源；`frame-ancestors 'none'` 仅通过 `_headers` 下发（meta 不支持）。
+- **CSP**：`default-src 'none'` 起步，仅放行必要来源（含 Cloudflare Pages 自带的匿名访问统计）；`frame-ancestors 'none'` 仅通过 `_headers` 下发（meta 不支持）。
 - **输出转义**：所有用户输入在渲染前统一经过 `esc()`。
 - **导入净化**：备份/定制包的 key 走白名单校验，数值范围夹紧，防属性注入与自伤。
-- **纯本地**：无网络请求、无第三方脚本，数据不出本机。
+- **数据本地**：训练 / 饮食数据全部存在浏览器，无自建后端；站点仅使用 Cloudflare Pages 自带的匿名访问统计（无 Cookie、不含个人数据）。
 
 ---
 

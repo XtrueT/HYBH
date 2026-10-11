@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'none';">
 <title>H.Y.B.H</title>
 <meta name="theme-color" content="#2f5d5a">
 <link rel="manifest" href="manifest.webmanifest">
@@ -141,6 +141,9 @@
   #daypop .foot { font-size:10.5px; color:var(--mut); margin-top:8px; }
 
   footer { flex-shrink:0; text-align:center; font-size:10px; color:var(--mut); padding:6px 16px; padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
+  footer .flinks { margin-top:2px; display:flex; justify-content:center; gap:2px; }
+  footer a { color:var(--mut); text-decoration:none; padding:8px 10px; }
+  footer a:hover { text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -257,7 +260,9 @@ description: 为 H.Y.B.H 健身追踪 App 生成 AI 定制训练计划与饮食�
 <div id="daypop" popover></div>
 <dialog id="dlg"></dialog>
 
-<footer>仅作健康生活参考，不构成医疗建议 · 如有不适请咨询专业人士，全部数据均存放于本地</footer>
+<footer>
+  <div class="flinks"><a href="privacy.html">隐私政策</a><a href="https://github.com/XtrueT/HYBH" target="_blank" rel="noopener noreferrer">GitHub</a></div>
+</footer>
 
 <script>
 "use strict";
@@ -1065,13 +1070,22 @@ function exportData(){
   a.download = "hybh-"+dkey(today())+".json"; a.click();
 }
 function importData(e){
-  const f = e.target.files[0]; if(!f) return;
+  const input = e.target, f = input.files && input.files[0]; if(!f) return;
   const fr = new FileReader();
+  fr.onerror = ()=>{ alert("文件读取失败，请重试"); input.value = ""; };
   fr.onload = ()=>{
+    input.value = "";   // 复位，允许再次选择同一个文件
     let obj;
-    try{ obj = JSON.parse(fr.result); }catch(_){ alert("JSON 格式错误"); return; }
+    try{ obj = JSON.parse(fr.result); }catch(_){ alert("JSON 格式错误：文件内容不是合法的 JSON"); return; }
     if(obj && obj.kind === "hybh-custom"){ applyCustomPackage(obj); return; }   // AI 定制包
-    if(obj && obj.schemaVersion){ DB = sanitizeBackup(obj); save(); renderAll(); return; }  // 全量备份（结构校验 + key 规范化）
+    if(obj && obj.schemaVersion){   // 全量备份（结构校验 + key 规范化）
+      if(!confirm("导入备份会覆盖当前全部数据（动作库、计划、饮食方案、打卡记录），且不可撤销。\n建议先「导出 JSON」留一份当前备份。\n\n确认导入？")) return;
+      try{
+        DB = sanitizeBackup(obj); save(); renderAll();
+        alert("导入完成：\n· 动作 " + Object.keys(DB.exercises).length + " 个\n· 计划 " + Object.keys(DB.plans).length + " 套\n· 饮食方案 " + Object.keys(DB.meals).length + " 套\n· 打卡记录 " + Object.keys(DB.days).length + " 天");
+      }catch(err){ alert("导入失败：" + ((err && err.message) || err)); }
+      return;
+    }
     alert("无法识别的文件：既不是全量备份，也不是 AI 定制包");
   };
   fr.readAsText(f);
