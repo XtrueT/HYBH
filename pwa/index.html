@@ -865,7 +865,7 @@ function renderSet(){
   const tRange = { lo: Math.round(BMI_HEALTHY_MIN*hM2r*10)/10, hi: Math.round(BMI_HEALTHY_MAX*hM2r*10)/10 };
   const tgtLine = hasTgt ? `目标 ${tw}kg（BMI ${bmiOf(tw).toFixed(1)}，${bmiTag(bmiOf(tw))}）` : "";
   const gap = dt.kcal - (dt.tdee || dt.kcal);
-  const gapTxt = dt.method !== "bmr" ? "" : (dt.dir === "维持" ? "与消耗持平" : `${dt.dir} ${gap > 0 ? "+" : "−"}${Math.abs(gap)}`);
+  const gapTxt = dt.method !== "bmr" ? "" : (dt.dir === "维持" ? "与消耗持平" : `${dt.dir}，比消耗${gap > 0 ? "多" : "少"} ${Math.abs(gap)} 千卡`);
   const dtLine = dt.method === "bmr"
     ? `BMR ${dt.bmr} · TDEE ${dt.tdee}（中度活动 ×${ACTIVITY}）`
     : `按方案系数估算（填性别与年龄可用 BMR/TDEE 更精确）`;
