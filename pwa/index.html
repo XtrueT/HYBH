@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none';">
+<title>H.Y.B.H</title>
+<meta name="theme-color" content="#2f5d5a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+  :root {
+    --bg: #f2f3f2; --card: #ffffff; --ink: #1a1a1a; --mut: #8a8f8d; --line: #e4e6e4;
+    --accent: #2f5d5a; --accent-soft: #e8efee;
+    --g0: #e9ebe9; --g1: #b9c9c5; --g2: #7fa39c; --g3: #4a7a72; --g4: #2f5d5a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body { background:var(--bg); color:var(--ink); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+  @media (min-width:720px){ body{max-width:480px; margin:0 auto; box-shadow:0 0 24px rgba(0,0,0,.08);} }
+
+  header { display:flex; justify-content:space-between; align-items:baseline; padding:18px 16px 8px; }
+  header .logo { font-size:17px; font-weight:800; letter-spacing:3px; }
+  header .r { font-size:11px; color:var(--mut); }
+
+  .hmwrap { padding:10px 16px 4px; }
+  .hm { display:flex; gap:9px; width:max-content; max-width:100%; margin:0 auto; overflow-x:auto; }
+  .mcol { display:flex; flex-direction:column; gap:4px; }
+  .mgrid { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,13px); grid-auto-columns:13px; gap:3px; }
+  .hm button { width:13px; height:13px; padding:0; border:none; cursor:pointer; background:var(--g0); }
+  .hm button.l1{background:var(--g1)} .hm button.l2{background:var(--g2)}
+  .hm button.l3{background:var(--g3)} .hm button.l4{background:var(--g4)}
+  .hm button.future { background:transparent; border:1px solid var(--line); cursor:default; }
+  .hm button.today { outline:1.5px solid var(--accent); outline-offset:1.5px; }
+  .cap { display:flex; justify-content:space-between; font-size:10px; color:var(--mut); margin-top:6px; max-width:266px; margin-left:auto; margin-right:auto; }
+
+  nav { display:flex; margin:12px 16px 0; border-bottom:1px solid var(--line); }
+  nav b { flex:1; text-align:center; font-size:12.5px; font-weight:500; color:var(--mut); padding:9px 0; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  nav b.on { color:var(--ink); font-weight:700; border-bottom-color:var(--accent); }
+
+  .panel { display:none; padding:12px 16px 20px; }
+  .panel.on { display:block; flex:1; min-height:0; overflow-y:auto; }
+  /* 面板结构统一：头部固定 + 列表自身滚动 */
+  #p-week.on, #p-today.on, #p-lib.on, #p-diet.on { display:flex; flex-direction:column; overflow:hidden; }
+  .p-head { flex-shrink:0; }
+  .p-list { flex:1; min-height:0; overflow-y:auto; }
+  #p-today .today-head { flex-shrink:0; }
+  #p-today .list-wrap { flex:1; min-height:0; overflow-y:auto; }
+  #p-week .strip { flex:1; min-height:0; overflow-x:auto; overflow-y:hidden; }
+  #p-week .slide { height:100%; overflow-y:auto; padding-right:10px; }
+  #p-week .dots { flex-shrink:0; }
+
+  /* Dialog 编辑弹窗 */
+  dialog { border:1px solid var(--line); background:var(--card); color:var(--ink);
+    box-shadow:0 6px 24px rgba(26,26,26,.18); padding:14px; width:min(320px, 88vw);
+    max-height:80vh; overflow-y:auto; margin:auto; }
+  dialog::backdrop { background:rgba(26,26,26,.25); }
+  dialog h3 { font-size:14px; margin-bottom:6px; }
+  dialog .dbtns { display:flex; gap:8px; margin-top:14px; position:sticky; bottom:-14px;
+    background:var(--card); padding:10px 0 4px; border-top:1px solid var(--line); margin:14px -14px -14px; padding:10px 14px 14px; }
+  dialog .dbtns .btn { flex:1; }
+
+  /* 面板内 CSS 轮播 */
+  .strip { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; margin:0 -16px; padding:0 16px 8px; }
+  .strip::-webkit-scrollbar { display:none; }
+  .slide { flex:0 0 100%; scroll-snap-align:center; padding-right:14px; }
+  .slide:last-child { padding-right:0; }
+  .dots { display:flex; gap:5px; justify-content:center; padding:6px 0 4px; }
+  .dots i { width:5px; height:5px; background:var(--line); }
+  .dots i.on { background:var(--accent); width:14px; }
+
+  .card { background:var(--card); box-shadow:0 1px 4px rgba(26,26,26,.08); padding:14px; }
+  .card + .card { margin-top:12px; }
+  .card h2 { font-size:15px; font-weight:700; }
+  .card h2 small { font-size:11px; font-weight:400; color:var(--mut); margin-left:6px; }
+  .meta { font-size:11.5px; color:var(--mut); margin-top:4px; line-height:1.6; }
+  .bar { height:3px; background:var(--bg); margin-top:10px; }
+  .bar b { display:block; height:100%; background:var(--accent); width:0; transition:width .3s; }
+
+  /* 动作行（可复用组件：ex-row） */
+  .ex { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); cursor:pointer; }
+  .ex svg { flex-shrink:0; }
+  .ex .info { flex:1; min-width:0; }
+  .ex h3 { font-size:13.5px; font-weight:600; }
+  .ex .sets { font-size:11.5px; color:var(--accent); font-weight:600; margin-top:1px; }
+  .ex .ck { width:20px; height:20px; border:1.5px solid var(--mut); flex-shrink:0; display:grid; place-items:center; font-size:12px; color:transparent; }
+  .ex.done { opacity:.45; }
+  .ex.done h3 { text-decoration:line-through; }
+  .ex.done .ck { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .ex .pts-line { font-size:11px; color:var(--mut); line-height:1.55; margin-top:2px; }
+
+  /* 饮食打卡：分割线在“餐与餐”之间 */
+  .mealblk { padding:6px 0; border-bottom:1px solid var(--line); }
+  .mealblk:last-of-type { border-bottom:none; }
+  .meal { display:flex; align-items:center; gap:10px; padding:9px 0; cursor:pointer; }
+  .meal h3 { font-size:13px; font-weight:600; flex:1; }
+  .meal .p { font-size:11px; color:var(--accent); font-weight:600; }
+  .meal .ck { width:20px; height:20px; border:1.5px solid var(--mut); flex-shrink:0; display:grid; place-items:center; font-size:12px; color:transparent; }
+  .meal.done { opacity:.45; }
+  .meal.done h3 { text-decoration:line-through; }
+  .meal.done .ck { background:var(--accent); border-color:var(--accent); color:#fff; }
+  details.menu { margin-top:2px; }
+  details.menu summary { cursor:pointer; font-size:12px; color:var(--mut); padding:10px 0 4px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th,td { padding:6px 4px; text-align:left; border-bottom:1px solid var(--line); }
+  th { color:var(--mut); font-weight:400; font-size:10.5px; }
+  tr:last-child td { border-bottom:none; }
+  .tag { color:var(--accent); font-size:10.5px; }
+
+  /* 库 / 编辑器 */
+  .btn { border:1px solid var(--line); background:var(--card); padding:7px 12px; font-size:12px; cursor:pointer; color:var(--ink); }
+  .btn.acc { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .btn.sm { padding:4px 8px; font-size:11px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); background:var(--bg); padding:3px 8px; font-size:11.5px; }
+  .chip b { color:var(--mut); cursor:pointer; font-weight:400; }
+  .chip .up { color:var(--accent); cursor:pointer; }
+  .exitem { display:flex; align-items:center; gap:8px; padding:8px 2px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .exitem:last-child { border-bottom:none; }
+  .exitem .idx { color:var(--mut); width:16px; font-size:11px; }
+  .exitem .nm { flex:1; }
+  .exitem .ops { display:flex; gap:10px; color:var(--accent); cursor:pointer; }
+  .exitem .ops .del { color:var(--mut); }
+  .frow { display:flex; gap:10px; margin-top:8px; }
+  .frow label { flex:1; font-size:11px; color:var(--mut); }
+  .frow input, .frow select, .frow textarea { width:100%; margin-top:3px; padding:7px; border:1px solid var(--line); font-size:12.5px; background:var(--card); font-family:inherit; }
+  .frow textarea { height:46px; resize:none; }
+  .exedit { border:1px solid var(--line); padding:10px; margin-top:8px; }
+
+  /* Popover（当天执行情况）：top layer 居中 */
+  #daypop { position:fixed; inset:0; width:min(300px, 84vw); height:fit-content; max-height:70vh; overflow-y:auto; margin:auto; border:1px solid var(--line); background:var(--card); box-shadow:0 6px 24px rgba(26,26,26,.18); padding:14px; }
+  #daypop::backdrop { background:rgba(26,26,26,.25); }
+  #daypop h3 { font-size:13.5px; margin-bottom:8px; }
+  #daypop .row { display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px solid var(--line); }
+  #daypop .row:last-child { border-bottom:none; }
+  #daypop .ok { color:var(--accent); font-weight:700; }
+  #daypop .no { color:var(--mut); }
+  #daypop .foot { font-size:10.5px; color:var(--mut); margin-top:8px; }
+
+  footer { flex-shrink:0; text-align:center; font-size:10px; color:var(--mut); padding:6px 16px; padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">H.Y.B.H</span>
+  <span class="r" id="hdr"></span>
+</header>
+
+<div class="hmwrap" id="hmwrap">
+  <div class="hm" id="hm"></div>
+  <div class="cap"><span id="hmL"></span><span>点击方块查看当天执行情况</span></div>
+</div>
+
+<nav id="nav">
+  <b class="on" data-p="today">今日</b><b data-p="diet">饮食</b><b data-p="week">周计划</b><b data-p="lib">库</b><b data-p="set">设置</b><b data-p="ai">AI</b>
+</nav>
+
+<div class="panel on" id="p-today"></div>
+<div class="panel" id="p-diet"></div>
+<div class="panel" id="p-week">
+  <div class="strip" id="st-week"></div>
+  <div class="dots" id="dt-week"></div>
+</div>
+<div class="panel" id="p-lib"></div>
+<div class="panel" id="p-set"></div>
+<div class="panel" id="p-ai"></div>
+
+<!-- SKILL 契约原文（只读展示 + 一键复制，text/plain 不被执行） -->
+<script type="text/plain" id="skill-src">
+---
+name: hybh-fitness-custom
+description: 为 H.Y.B.H 健身追踪 App 生成 AI 定制训练计划与饮食方案包。当用户提供身高体重、健身目标、器材条件、伤病情况等需求，希望得到定制计划/饮食时使用。
+---
+
+# H.Y.B.H AI 定制工作流
+
+把用户的自然语言需求转换为一份 **AI 定制包 JSON**，用户在 App「AI」页粘贴即可一键导入。
+
+## 工作流
+
+1. **收集需求**：目标（增肌/减脂/体态/体能）、每周可训练天数、可用器材（哑铃重量/弹力带/徒手）、饮食预算或偏好、伤病史。缺失项用合理默认值并在输出前向用户复述假设。
+2. **设计**：按下方「数据契约」构造 JSON。优先复用内置动作（见内置动作清单），只把库里没有的动作放进 `exercises`。
+3. **校验**：输出前逐项自查——`kind` 必须是 `hybh-custom`；`plans.*.days` 恰好 7 项；`fig`/`part` 在枚举内；`exNames` 中的动作名要么在内置清单、要么在 `exercises` 里。
+4. **输出**：一个完整 JSON（单独代码块），随后附 3-5 行要点说明（训练思路、饮食系数、注意事项）与免责声明。
+
+## 数据契约（完整字段说明与示例）
+
+### 顶层结构
+
+```json
+{
+  "kind": "hybh-custom",
+  "v": 1,
+  "profile": "用户需求一句话摘要（≤50 字）",
+  "settings": { "height": 170, "weight": 65 },
+  "exercises": [ { "name": "壶铃摆荡", "fig": "dead", "part": "臀", "equip": "壶铃", "sets": "3 × 15", "points": "髋部发力甩铃，下背保持中立。" } ],
+  "plans": { "plan1": { "name": "居家增肌四周", "days": [
+    { "title": "上肢推", "exNames": ["俯卧撑", "肩上推举", "哑铃飞鸟"] },
+    { "title": "下肢",   "exNames": ["高脚杯深蹲", "箭步蹲", "臀桥"] },
+    { "title": "主动恢复", "exNames": ["全身拉伸", "散步 / 快走"] },
+    { "title": "上肢拉", "exNames": ["单臂划船", "哑铃弯举", "平板支撑"] },
+    { "title": "全身循环", "exNames": ["高脚杯深蹲", "俯卧撑", "双臂划船"] },
+    { "title": "下肢+核心", "exNames": ["保加利亚分腿蹲", "俄罗斯转体"] },
+    { "title": "休息日", "exNames": ["全身拉伸"] }
+  ] } },
+  "meals": {
+    "label": "学生党高蛋白餐", "kcal": 30, "pro": 1.6, "note": "", "wcost": 200,
+    "meals": [
+      { "n": "早餐", "p": "22g", "cost": "¥6", "rows": [["鸡蛋", "2 个", "12g"], ["纯牛奶", "250ml", "8g"]] },
+      { "n": "午餐", "p": "30g", "cost": "¥12", "rows": [["蛋白质主菜", "150g", "30g"], ["米饭", "1 碗", "—"]] },
+      { "n": "晚餐", "p": "25g", "cost": "¥9", "rows": [["豆腐/瘦肉", "150g", "25g"], ["绿叶菜", "200g", "—"]] }
+    ],
+    "shop": [["鸡蛋 20 个 + 牛奶 2L", "¥35"], ["冷冻鸡胸 1kg", "¥20"]]
+  }
+}
+```
+
+### 字段约束
+
+- **settings**（可选）：height 100-250 cm，weight 25-300 kg。仅在用户提供了身高体重时填写。
+- **exercises**（可选，≤20 个）：只列**内置库没有**的动作。字段：
+  - name：必填，≤20 字，与内置动作重名会被忽略并复用内置动作。
+  - fig：动作示意图标枚举：`squat | pushup | fly | raise | dead | row | curl | core | bridge | stretch | rest`，非法值自动降级为通用图标。
+  - part：部位枚举：`胸 | 肩 | 背 | 臂 | 腿 | 臀 | 核心 | 有氧 | 恢复`，非法值归入「核心」。
+  - equip ≤10 字（如 自重/哑铃/弹力带）；sets ≤20 字（如 `3 × 12`、`3 × 40 秒`）；points ≤120 字动作要点。
+- **plans**（建议 1 套）：name ≤16 字；days 恰好 7 项（周一→周日），每项 `title` ≤10 字、
+  `exNames` 为动作名数组（先引用内置动作名，内置没有的放进 exercises）；每天 4-5 个动作为宜。
+- **meals**（可选）：3-6 餐；kcal/pro 为每公斤体重系数（热量 kcal/kg/天、蛋白 g/kg/天，
+  安全区 kcal 20-45、pro 1.2-2.5，越界会被夹紧）；wcost 为 60kg 成人每周采购参考价（元）；
+  rows 每行 `[食物, 分量, 蛋白质]`，蛋白质为 `—` 表示不计。App 会按用户体重自动折算热量与蛋白目标并缩放份量。
+
+## 内置动作库（可直接按名字引用，勿重复创建）
+
+俯卧撑、肩上推举、哑铃飞鸟、侧平举、颈后臂屈伸、高脚杯深蹲、箭步蹲、罗马尼亚硬拉、
+臀桥、提踵、哑铃弯举、单臂划船、双臂划船、卷腹 + 死虫式、平板支撑、保加利亚分腿蹲、
+单腿臀桥、俄罗斯转体、仰卧抬腿、开合跳、波比跳、全身拉伸、散步 / 快走、哑铃卧推、
+双杠臂屈伸、俯立飞鸟、耸肩、面拉、锤式弯举、引体向上、俯卧背伸展、相扑深蹲、
+农夫行走、登山跑、跳绳
+
+## 安全护栏（必须遵守）
+
+1. 遵循渐进超负荷：选择「能标准完成目标次数、最后 2-3 次接近力竭」的重量，不指定具体 kg 数。
+2. 新手前两周强度减半；每周至少 1 个休息日（轻度活动：拉伸+散步）。
+3. 用户提及伤病（腰/膝/肩等）时，规避相关负重动作，改用低冲击替代并注明。
+4. 减脂目标蛋白 ≥1.8g/kg 防掉肌；热量缺口温和（约 -300~500 kcal/天）。
+5. 不输出医疗建议；输出末尾附一句「AI 定制仅供参考，不构成医疗建议」。
+
+## 幂等性
+
+导入是幂等的：动作按名字复用；**同名计划**、**同名 label 的饮食方案**重复导入时为「更新」而非重复新增（保持原位置与启用状态）。用户可以反复导入迭代修正的方案，不会产生重复副本。
+</script>
+
+<div id="daypop" popover></div>
+<dialog id="dlg"></dialog>
+
+<footer>本工具仅作健康生活参考，不构成医疗建议 · 如有不适请咨询专业人士</footer>
+
+<script>
+"use strict";
+// HTML 转义：所有用户输入渲染前必须经过 esc()
+const esc = s => String(s??'').replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+// ==================================================================
+// H.Y.B.H v2 — 单体应用，组件边界按小程序映射划好
+// 组件：exFig(动作图) / exRow(动作行) / bindCarousel(轮播)
+// 数据：exercises(动作库) → plans(计划,存引用) → days(执行记录,带id)
+// ==================================================================
+
+// ---------- 动作图形（14 种火柴人，fig 字段可替换为图片路径以迁移小程序） ----------
+const FIGS = ["curl","press","row","squat","lunge","pushup","dead","fly","raise","ext","bridge","core","stretch","rest"];
+function pose(type, ph){
+  const K="#1a1a1a";
+  const base = `<rect x="70" y="122" width="60" height="4" fill="#dfe1df"/>`;
+  const db = (x,y,r=0)=>`<g transform="rotate(${r} ${x} ${y})"><rect x="${x-10}" y="${y-2.5}" width="20" height="5" fill="#555"/><rect x="${x-15}" y="${y-4.5}" width="4" height="9" fill="#333"/><rect x="${x+11}" y="${y-4.5}" width="4" height="9" fill="#333"/></g>`;
+  const sw = Math.sin(ph/2*Math.PI), S=v=>v.toFixed(1);
+  switch(type){
+    case "curl": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="100" cy="30" r="11" fill="${K}" stroke="none"/><path d="M100 42 L100 85"/><path d="M100 50 L84 ${S(64-sw*18)} L84 ${S(44-sw*20)}"/><path d="M100 50 L118 ${S(70-sw*14)} L118 ${S(60-sw*18)}"/></g>${db(84,S(40-sw*20))}${db(118,S(56-sw*18))}${base}`;
+    case "press": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="100" cy="30" r="11" fill="${K}" stroke="none"/><path d="M100 42 L100 88"/><path d="M100 48 L86 ${S(34-sw*12)} L86 ${S(20-sw*14)}"/><path d="M100 48 L114 ${S(34-sw*12)} L114 ${S(20-sw*14)}"/></g>${db(86,S(16-sw*14))}${db(114,S(16-sw*14))}${base}`;
+    case "row": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="88" cy="48" r="11" fill="${K}" stroke="none"/><path d="M92 58 L112 92"/><path d="M112 92 L${S(128+sw*6)} 92"/><path d="M96 62 L${S(122+sw*4)} ${S(78-sw*10)} ${S(122+sw*4)} ${S(68-sw*12)}"/></g>${db(S(122+sw*4),S(74-sw*11))}${base}`;
+    case "squat": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="100" cy="${S(38+sw*14)}" r="11" fill="${K}" stroke="none"/><path d="M100 ${S(49+sw*14)} L100 ${S(78+sw*8)}"/><path d="M100 ${S(56+sw*12)} L82 ${S(66+sw*8)} L82 ${S(50+sw*12)}"/><path d="M100 ${S(56+sw*12)} L118 ${S(66+sw*8)} L118 ${S(50+sw*12)}"/><path d="M100 ${S(78+sw*8)} L84 ${S(96+sw*3)} L84 118"/><path d="M100 ${S(78+sw*8)} L116 ${S(96+sw*3)} L116 118"/></g>${db(82,S(46+sw*12))}${db(118,S(46+sw*12))}${base}`;
+    case "lunge": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="96" cy="${S(30+sw*10)}" r="11" fill="${K}" stroke="none"/><path d="M96 ${S(41+sw*10)} L100 ${S(68+sw*8)}"/><path d="M96 ${S(47+sw*9)} L78 ${S(58+sw*8)} L78 ${S(42+sw*9)}"/><path d="M96 ${S(47+sw*9)} L114 ${S(58+sw*8)} L114 ${S(42+sw*9)}"/><path d="M100 ${S(68+sw*8)} L84 ${S(84+sw*5)} L84 120"/><path d="M100 ${S(68+sw*8)} L118 ${S(96+sw*3)} L118 120"/></g>${db(78,S(38+sw*9))}${db(114,S(38+sw*9))}${base}`;
+    case "pushup": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="140" cy="${S(72-sw*8)}" r="10" fill="${K}" stroke="none"/><path d="M132 ${S(78-sw*8)} L70 92"/><path d="M110 90 L104 116"/><path d="M84 94 L80 116"/></g><rect x="60" y="116" width="100" height="4" fill="#dfe1df"/>`;
+    case "dead": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="94" cy="${S(52+sw*10)}" r="11" fill="${K}" stroke="none"/><path d="M98 ${S(62+sw*10)} L104 90"/><path d="M104 90 L96 118"/><path d="M104 90 L112 118"/><path d="M102 ${S(66+sw*10)} L${S(128+sw*2)} ${S(88+sw*14)} ${S(128+sw*2)} ${S(78+sw*14)}"/></g>${db(S(128+sw*2),S(83+sw*14))}${base}`;
+    case "fly": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="100" cy="30" r="11" fill="${K}" stroke="none"/><path d="M100 42 L100 85"/><path d="M100 52 L82 66 L${S(80+sw*18)} ${S(78-sw*12)}"/><path d="M100 52 L118 66 L${S(120-sw*18)} ${S(78-sw*12)}"/></g>${db(S(80+sw*18),S(82-sw*12),-30)}${db(S(120-sw*18),S(82-sw*12),30)}${base}`;
+    case "raise": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="100" cy="30" r="11" fill="${K}" stroke="none"/><path d="M100 42 L100 85"/><path d="M100 52 L${S(74-sw*26)} ${S(52-sw*24)}"/><path d="M100 52 L${S(126+sw*26)} ${S(52-sw*24)}"/></g>${db(S(70-sw*26),S(52-sw*24))}${db(S(130+sw*26),S(52-sw*24))}${base}`;
+    case "ext": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="100" cy="30" r="11" fill="${K}" stroke="none"/><path d="M100 42 L100 85"/><path d="M100 48 L88 38 L88 ${S(60+sw*10)} L100 55"/></g>${db(88,S(64+sw*10),180)}${base}`;
+    case "bridge": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="66" cy="${S(92-sw*14)}" r="10" fill="${K}" stroke="none"/><path d="M74 ${S(94-sw*14)} Q100 ${S(74-sw*16)} 126 ${S(92-sw*14)}"/><path d="M120 94 L120 116"/><path d="M132 94 L132 116"/></g><rect x="55" y="116" width="100" height="4" fill="#dfe1df"/>`;
+    case "core": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="130" cy="${S(82-sw*6)}" r="10" fill="${K}" stroke="none"/><path d="M124 ${S(88-sw*6)} Q100 ${S(96-sw*8)} 76 100"/><path d="M124 ${S(92-sw*6)} L116 110"/><path d="M88 102 L84 116"/><path d="M100 100 L96 116"/></g><rect x="60" y="116" width="90" height="4" fill="#dfe1df"/>`;
+    case "custom": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="100" cy="30" r="11" fill="${K}" stroke="none"/><path d="M100 42 L100 85"/><path d="M100 50 L88 66 L88 86"/><path d="M100 50 L112 66 L112 86"/><path d="M100 85 L88 118"/><path d="M100 85 L112 118"/></g>${db(88,90)}${db(112,90)}${base}`;
+    case "stretch": return `<g stroke="${K}" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="100" cy="30" r="11" fill="${K}" stroke="none"/><path d="M100 42 L100 85"/><path d="M100 50 L80 64 L70 80"/><path d="M100 50 L120 64 L130 80"/><path d="M100 85 L100 120"/></g>${base}`;
+    default: return `<g stroke="#9aa79f" stroke-width="5" fill="none" stroke-linecap="round"><circle cx="100" cy="52" r="12" fill="#9aa79f" stroke="none"/><path d="M100 64 Q80 84 60 88"/><path d="M100 64 Q120 84 140 88"/><path d="M86 92 L86 112"/><path d="M114 92 L114 112"/></g>`;
+  }
+}
+function exFig(type){
+  return `<svg width="52" height="52" viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+    <g class="f0">${pose(type,0)}</g><g class="f1" style="display:none">${pose(type,1)}</g><g class="f2" style="display:none">${pose(type,2)}</g></svg>`;
+}
+let animTimer=null, animPh=0;
+function startAnim(){
+  clearInterval(animTimer);
+  animTimer = setInterval(()=>{
+    animPh = (animPh+1)%3;
+    document.querySelectorAll("svg").forEach(s=>{
+      [0,1,2].forEach(k=>{ const g=s.querySelector(".f"+k); if(g) g.style.display = k===animPh?"":"none"; });
+    });
+  }, 700);
+}
+
+// ---------- 内置动作库（custom:false 不可删，只能改副本） ----------
+function seedExercises(){
+  const B = [
+    ["俯卧撑","pushup","胸","自重","4 × 力竭 12-20","身体成直线，下放 3 秒；做不动改跪姿。"],
+    ["肩上推举","press","肩","哑铃","4 × 15-20","从耳侧上推，慢放，核心收紧。"],
+    ["哑铃飞鸟","fly","胸","哑铃","3 × 15","双臂微屈，像抱树合拢，胸发力。"],
+    ["侧平举","raise","肩","哑铃","3 × 15-20","举到与肩平停半秒，控制为主。"],
+    ["颈后臂屈伸","ext","臂","哑铃","3 × 15-20","肘固定，只动小臂，到底再伸直。"],
+    ["高脚杯深蹲","squat","腿","哑铃","4 × 20","铃捧胸前，蹲至大腿平行，膝盖对脚尖。"],
+    ["箭步蹲","lunge","腿","哑铃","3 × 每侧 12","跨大步下蹲至后膝近地，躯干垂直。"],
+    ["罗马尼亚硬拉","dead","腿","哑铃","4 × 15","臀向后推，铃贴腿下滑，背平直。"],
+    ["臀桥","bridge","臀","哑铃","3 × 20","顶髋至身体成直线，顶峰停 2 秒。"],
+    ["提踵","squat","腿","哑铃","3 × 25","踮到最高点停 1 秒，有控制下落。"],
+    ["哑铃弯举","curl","臂","哑铃","3 × 15-20","肘贴体侧固定，慢上慢下不甩。"],
+    ["单臂划船","row","背","哑铃","4 × 每侧 15-20","俯身 45°，向髋部拉，肘贴身体。"],
+    ["双臂划船","row","背","哑铃","3 × 15","拉向腹部，肩胛骨后缩夹紧。"],
+    ["卷腹 + 死虫式","core","核心","自重","3 × 15","下背贴地，用腹肌卷起。"],
+    ["平板支撑","core","核心","自重","3 × 40-60 秒","身体一条线，收紧腹臀，不塌腰。"],
+    ["保加利亚分腿蹲","squat","腿","自重","3 × 每侧 12","后脚搭椅，先自重，前腿发力。"],
+    ["单腿臀桥","bridge","臀","自重","3 × 每侧 15","一腿伸直，单腿顶髋不塌腰。"],
+    ["俄罗斯转体","core","核心","哑铃","3 × 20","坐姿抬脚，持铃左右触地。"],
+    ["仰卧抬腿","core","核心","自重","3 × 15","下背贴地，慢抬慢落。"],
+    ["开合跳","raise","有氧","自重","3 × 45 秒","节奏均匀，落地屈膝缓冲。"],
+    ["波比跳","squat","有氧","自重","3 × 10-15","撑地→俯卧撑→跳起，全程连贯。"],
+    ["全身拉伸","stretch","恢复","—","15 分钟","肩/胸/腿前后侧/髋各 30 秒，深呼吸。"],
+    ["散步 / 快走","rest","恢复","—","30-40 分钟","微微出汗即可，饭后走更好。"],
+    // —— 常见健身房动作（轻负重或徒手均可完成）——
+    ["哑铃卧推","pushup","胸","哑铃","4 × 12-15","仰卧，哑铃向胸两侧下放至大臂平，推起不锁肘。"],
+    ["双杠臂屈伸","pushup","胸","自重","3 × 力竭 8-15","身体前倾练胸下束，垂直练肱三头；可用椅子支撑。"],
+    ["俯立飞鸟","fly","肩","哑铃","3 × 15","俯身 45°，双臂向两侧展开，练肩后束与上背。"],
+    ["耸肩","dead","肩","哑铃","3 × 20","双臂垂直，耸肩向耳朵方向顶到最高停 1 秒。"],
+    ["面拉","raise","肩","哑铃","3 × 15-20","双臂拉向面部两侧，练肩后束与肩袖，改善圆肩。"],
+    ["锤式弯举","curl","臂","哑铃","3 × 12-15","掌心相对，练肱肌与前臂，小臂酸胀正常。"],
+    ["引体向上","row","背","自重","3 × 力竭","正手宽握，拉到下巴过杠；做不动用弹力带辅助或做悬垂。"],
+    ["俯卧背伸展","dead","背","自重","3 × 15","俯卧，上背与双腿同时抬起，练竖脊肌，慢起慢落。"],
+    ["相扑深蹲","squat","腿","哑铃","4 × 20","宽距脚尖外展，铃垂直下放，练大腿内侧与臀。"],
+    ["农夫行走","dead","核心","哑铃","3 × 40 秒","双手持重物行走，全程收紧核心，练握力与躯干稳定。"],
+    ["登山跑","core","有氧","自重","3 × 30 秒","俯撑姿势交替提膝到胸，保持臀部不抬高。"],
+    ["跳绳","rest","有氧","—","3 × 60 秒","前脚掌落地，膝盖微屈；无绳可用空摇代替。"]
+  ];
+  const o = {};
+  B.forEach((b,i)=>{ o["ex-b"+String(i+1).padStart(2,"0")] = {
+    name:b[0], fig:b[1], part:b[2], equip:b[3], sets:b[4], points:b[5], custom:false }; });
+  return o;
+}
+// 两套内置计划：增肌（默认启用）与减脂；均遵循"每天 4-5 个动作"原则
+function seedPlans(byName){
+  const d = (...names)=>({ exIds: names.map(n=>byName[n]).filter(Boolean) });
+  return {
+    "pl-muscle": { name:"哑铃增肌周", days:[
+      { title:"上肢推", ...d("俯卧撑","肩上推举","哑铃飞鸟","侧平举","颈后臂屈伸") },
+      { title:"下肢",   ...d("高脚杯深蹲","箭步蹲","罗马尼亚硬拉","臀桥","提踵") },
+      { title:"主动恢复", ...d("全身拉伸","散步 / 快走") },
+      { title:"上肢拉", ...d("单臂划船","双臂划船","哑铃弯举","卷腹 + 死虫式","平板支撑") },
+      { title:"全身循环", ...d("高脚杯深蹲","俯卧撑","双臂划船","肩上推举","平板支撑") },
+      { title:"下肢+核心", ...d("保加利亚分腿蹲","单腿臀桥","俄罗斯转体","仰卧抬腿") },
+      { title:"休息日", ...d("全身拉伸","散步 / 快走") }
+    ]},
+    "pl-lean": { name:"减脂循环周", days:[
+      { title:"全身循环A", ...d("开合跳","高脚杯深蹲","俯卧撑","双臂划船","平板支撑") },
+      { title:"有氧+核心", ...d("开合跳","散步 / 快走","卷腹 + 死虫式","俄罗斯转体") },
+      { title:"主动恢复", ...d("全身拉伸","散步 / 快走") },
+      { title:"全身循环B", ...d("罗马尼亚硬拉","肩上推举","箭步蹲","哑铃弯举","仰卧抬腿") },
+      { title:"全身循环C", ...d("波比跳","保加利亚分腿蹲","俯卧撑","单臂划船","臀桥") },
+      { title:"有氧+核心", ...d("开合跳","散步 / 快走","平板支撑","俄罗斯转体") },
+      { title:"休息日", ...d("全身拉伸","散步 / 快走") }
+    ]}
+  };
+}
+const PARTS = ["胸","肩","背","臂","腿","臀","核心","有氧","恢复"];
+const METAS = {
+  "上肢推":"胸 · 肩 · 肱三头 ｜ 组间休息 30-45 秒",
+  "下肢":"腿 · 臀 ｜ 自重为主，哑铃加成",
+  "主动恢复":"不练力量：拉伸 + 散步，促进恢复",
+  "上肢拉":"背 · 肱二头 · 核心",
+  "全身循环":"5 站连续为 1 轮 × 3-4 轮，轮间休 2 分钟",
+  "下肢+核心":"腿臀二次刺激 + 核心",
+  "完全休息":"睡够、补水，整理下周食材",
+  "休息日":"轻度活动促进恢复：拉伸 + 散步，不练力量",
+  "全身循环A":"5 站连续为 1 轮 × 3-4 轮，轮间休 ≤30 秒",
+  "全身循环B":"5 站连续为 1 轮 × 3-4 轮，轮间休 ≤30 秒",
+  "全身循环C":"5 站连续为 1 轮 × 3-4 轮，轮间休 ≤30 秒",
+  "有氧+核心":"有氧打底 + 核心雕刻 ｜ 强度：最大心率 60-70%"
+};
+
+// ---------- 存储层（schemaVersion 3） ----------
+const KEY = "dumbbell_fit_v1";
+let DB = JSON.parse(localStorage.getItem(KEY) || "null") || { v:1, schemaVersion:6, days:{},
+  settings:{height:172, weight:60, hmWeeks:13} };
+(function migrate(){
+  // 初始化数据必须先于一切版本判断：重置/首次打开都要能拿到完整种子数据
+  if(!DB.exercises || !Object.keys(DB.exercises).length) DB.exercises = seedExercises();
+  if(DB.schemaVersion < 3){
+    // 保留用户自定义动作，重建内置库
+    const oldById = Object.assign({}, DB.exercises || {});
+    const custom = {};
+    Object.entries(oldById).forEach(([id,e])=>{ if(e && e.custom) custom[id] = e; });
+    DB.exercises = Object.assign(seedExercises(), custom);
+    // 历史打卡记录：旧 id 失效时按动作名映射到新库，映射不到的记为 null（显示"已删除动作"）
+    const byName0 = {};
+    Object.entries(DB.exercises).forEach(([id,e])=>{ if(!byName0[e.name]) byName0[e.name] = id; });
+    Object.values(DB.days).forEach(rec=>{
+      if(Array.isArray(rec.ex)){
+        rec.ex = rec.ex.map(x=>{
+          if(typeof x === "boolean") return { id:null, done:x };
+          if(x.id && DB.exercises[x.id]) return x;
+          const old = oldById[x.id];
+          const nid = old ? byName0[old.name] : null;
+          return { id: nid || null, done: !!x.done };
+        });
+      }
+    });
+    DB.schemaVersion = 3;
+  }
+  if(DB.schemaVersion < 4){
+    // v4：内置计划重新编排（休息日配置轻度活动）
+    const byName = {};
+    Object.entries(DB.exercises).forEach(([id,e])=>{ if(!byName[e.name]) byName[e.name] = id; });
+    DB.plans = Object.assign(DB.plans || {}, seedPlans(byName));
+    DB.schemaVersion = 4;
+  }
+  // v5：去掉内置计划名中的负重前缀（重量改为用户自选）
+  if(DB.schemaVersion < 5){
+    const RENAME = { "3kg 哑铃增肌周":"哑铃增肌周", "3kg 减脂循环周":"减脂循环周" };
+    Object.values(DB.plans || {}).forEach(p=>{ if(p && RENAME[p.name]) p.name = RENAME[p.name]; });
+    DB.schemaVersion = 5;
+  }
+  // v6：饮食方案数据化（MEAL_PLANS 常量 → DB.meals，支持 AI 定制扩展）
+  if(DB.schemaVersion < 6 || !DB.meals){
+    const builtinKeys = ["muscle","lean"];
+    const customs = {};
+    Object.entries(DB.meals || {}).forEach(([k,v])=>{ if(!builtinKeys.includes(k)) customs[k] = v; });
+    DB.meals = Object.assign(seedMeals(), customs);
+    DB.schemaVersion = 6;
+  }
+  // 内置计划兜底：缺失（旧 pl-basic 或被误删）时补种
+  if(!DB.plans || !DB.plans["pl-muscle"]){
+    const byName = {};
+    Object.entries(DB.exercises).forEach(([id,e])=>{ if(!byName[e.name]) byName[e.name] = id; });
+    DB.plans = Object.assign(DB.plans || {}, seedPlans(byName));
+  }
+  if(!DB.plans[DB.activePlanId]) DB.activePlanId = "pl-muscle";
+  if(!DB.settings) DB.settings = {height:172, weight:60, hmWeeks:13, goal:"muscle"};
+  if(!DB.settings.goal) DB.settings.goal = "muscle";
+})();
+function save(){
+  // 约定：打卡类交互=原地 DOM 更新（不重绘防滚动），配置类=整面板重绘；DB 字符串进模板必过 esc()
+  try{ localStorage.setItem(KEY, JSON.stringify(DB)); }
+  catch(e){ alert("本地存储写入失败（隐私模式或空间不足）\n本次数据未被持久化，请尽快「导出 JSON」备份。"); }
+}
+function today(){ const d=new Date(); return new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); }
+function dkey(d){ return d.toISOString().slice(0,10); }
+function dayIdxOf(d){ const w=d.getUTCDay(); return w===0?6:w-1; }
+function activePlan(){ return DB.plans[DB.activePlanId]; }
+function exById(id){ return DB.exercises[id]; }
+function dayRec(ds, wd){
+  const plan = activePlan();
+  const ids = plan.days[wd].exIds || [];
+  const rec = DB.days[ds];
+  if(!rec){
+    DB.days[ds] = { planId: DB.activePlanId,
+      ex: ids.map(id=>({id, done:false})),
+      meals: Array(4).fill(false) };
+  } else if(rec.planId !== DB.activePlanId ||
+            rec.ex.map(x=>x.id).join("|") !== ids.join("|")){
+    // 数据驱动：计划变更后，按当前计划重建当天快照，按 id 保留已完成状态
+    const old = new Map((rec.ex||[]).map(x=>[x.id, x.done]));
+    rec.planId = DB.activePlanId;
+    rec.ex = ids.map(id=>({id, done: old.get(id) || false}));
+    if(!rec.meals) rec.meals = Array(4).fill(false);
+  }
+  if(!DB.days[ds].meals) DB.days[ds].meals = Array(4).fill(false);
+  return DB.days[ds];
+}
+function uid(p){ return p + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// ---------- 组件：动作行（全站统一：图标+名称+组次+要点直显；interactive 控制勾选） ----------
+function exRow(e, done, interactive, clickJs){
+  return `<div class="ex ${done?"done":""}" onclick="${interactive?clickJs:""}" style="${interactive?"":"cursor:default"}">
+    ${exFig(e.fig)}
+    <div class="info"><h3>${esc(e.name)}</h3><div class="sets">${esc(e.sets)}</div>
+      <div class="pts-line">${esc(e.points)}</div></div>
+    ${interactive?'<div class="ck">✓</div>':""}
+  </div>`;
+}
+
+// ---------- 组件：Dialog 弹窗 ----------
+function openDlg(title, html){
+  const dlg = document.getElementById("dlg");
+  dlg.innerHTML = dlgInner(title, html);
+  dlg.showModal();
+}
+function dlgInner(title, html){
+  return `<h3>${title}</h3>${html}
+    <div class="dbtns"><button class="btn acc" onclick="closeDlg(true)">保存</button>
+    <button class="btn" onclick="closeDlg(false)">取消</button></div>`;
+}
+function refreshDlg(title, html){
+  const dlg = document.getElementById("dlg");
+  if(dlg.open) dlg.innerHTML = dlgInner(title, html);
+}
+function closeDlg(apply){
+  const dlg = document.getElementById("dlg");
+  const fn = apply ? dlg.onapply : null;
+  dlg.close();                       // 先关闭再回调，允许回调里再次 showModal（如新建计划→编辑计划）
+  if(fn) fn();
+}
+
+// ---------- 组件：轮播同步（索引按单卡宽度取整，末页可达） ----------
+function bindCarousel(strip, dots){
+  strip.onscroll = (()=>{ let t; return ()=>{ clearTimeout(t); t=setTimeout(()=>{
+    const sw = strip.children[0].offsetWidth || 1;
+    const idx = Math.max(0, Math.min(dots.children.length-1, Math.round(strip.scrollLeft / sw)));
+    [...dots.children].forEach((d,k)=>d.classList.toggle("on", k===idx));
+  },120); }; })();
+}
+
+// ---------- 今日 ----------
+function renderToday(){
+  const d = today(), ds = dkey(d), wd = dayIdxOf(d);
+  const plan = activePlan(), day = plan.days[wd];
+  const rec = dayRec(ds, wd);
+  const done = rec.ex.filter(x=>x.done).length, total = rec.ex.length;
+  const planName = plan.name;
+  const MP = mealsPlan(), MM = MP.meals, SC = dietScaler();
+  const md = rec.meals.filter(Boolean).length;
+  const T = dietTargets();
+  document.getElementById("p-today").innerHTML = `
+    <div class="today-head">
+      <div class="card" style="margin-bottom:12px">
+        <button class="btn sm" style="float:right;margin-left:8px" onclick="shareCard()">分享</button>
+        <h2>${d.getUTCMonth()+1}月${d.getUTCDate()}日 ${esc(planName)} · ${esc(day.title)}<small id="ex-cnt">${done}/${total} 动作</small></h2>
+        <div class="meta">${METAS[day.title] || "自定义训练日"}</div>
+        <div class="bar"><b id="ex-bar" style="width:${total?done/total*100:0}%"></b></div>
+      </div>
+    </div>
+    <div class="list-wrap">
+      <div class="card">
+        ${rec.ex.length ? rec.ex.map((x,i)=>{
+          const e = exById(x.id);
+          return e ? exRow(e, x.done, true, `toggleEx(${i}, this)`) : "";
+        }).join("") : '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">今天没有安排动作，可在 设置 → 计划管理 中添加</div>'}
+        <div class="hint" style="font-size:10.5px;color:var(--mut);padding-top:8px">休息日可在 设置 → 计划管理 中安排动作 ｜ 点击动作打卡</div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2>饮食打卡 · ${esc(MP.label)}<small><span id="meal-cnt">${md}/${MM.length} 餐</span> · ≈${T.kcal-100}~${T.kcal+100} 千卡</small></h2>
+        <div class="bar"><b id="meal-bar" style="width:${MM.length?md/MM.length*100:0}%"></b></div>
+        <div style="margin-top:4px">
+          ${MM.map((m,i)=>`
+            <div class="mealblk">
+              <div class="meal ${rec.meals[i]?"done":""}" onclick="toggleMeal(${i}, this)">
+                <h3>${esc(m.n)}</h3><span class="p">${esc(m.p)} · ${esc(m.cost)}</span><div class="ck">✓</div>
+              </div>
+              <details class="menu" name="today-menu"><summary>菜单</summary>
+                <table><tr><th>食物</th><th>分量</th><th>蛋白</th></tr>
+                ${m.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(SC.portion(r[1]))}</td><td><span class="tag">${esc(SC.protein(r[2], r[1]))}</span></td></tr>`).join("")}</table>
+              </details>
+            </div>`).join("")}
+        </div>
+      </div>
+    </div>`;
+}
+// 重绘滚动容器自身 innerHTML 会重置 scrollTop —— 因此打卡类操作一律原地更新 DOM，不重绘面板
+function toggleEx(i, el){
+  const rec = dayRec(dkey(today()), dayIdxOf(today()));
+  rec.ex[i].done = !rec.ex[i].done; save();
+  const row = el && el.closest ? el.closest(".ex") : null;
+  if(row) row.classList.toggle("done", rec.ex[i].done);
+  const done = rec.ex.filter(x=>x.done).length, total = rec.ex.length;
+  const cnt = document.getElementById("ex-cnt"), bar = document.getElementById("ex-bar");
+  if(cnt) cnt.textContent = `${done}/${total} 动作`;
+  if(bar) bar.style.width = (total?done/total*100:0) + "%";
+  renderHeatmap(); startAnim();
+}
+
+// ---------- 饮食 ----------
+// ---------- 饮食方案（存于 DB.meals，内置两套 + AI 定制可扩展） ----------
+// 字段：kcal/pro 为每公斤系数（热量/蛋白按体重折算），wcost 为 60kg 基准每周采购金额
+function seedMeals(){
+  return {
+    muscle: { label:"增肌餐", kcal:33, pro:1.5, note:"", wcost:280, meals:[
+      {n:"早餐", p:"25g", rows:[["鸡蛋","2 个","12g"],["燕麦 40g / 全麦馒头","1 份","5g"],["纯牛奶","250ml","8g"]], cost:"¥8"},
+      {n:"午餐", p:"35g", rows:[["蛋白质主菜（鸡胸/鱼虾/瘦牛肉互换）","150g","35g"],["米饭","1.5 碗","—"],["时蔬","200g","—"]], cost:"¥15"},
+      {n:"练后加餐（30 分钟内）", p:"7g", rows:[["香蕉","1 根","—"],["水煮蛋 / 豆浆","1 个 / 300ml","7g"]], cost:"¥4"},
+      {n:"晚餐", p:"25g", rows:[["豆腐 / 鸡腿 / 瘦肉轮换","150-200g","25g"],["杂粮饭 / 红薯","1 碗","—"],["绿叶菜 少油清炒","200g","—"]], cost:"¥13"}
+    ], shop:[["鸡蛋 20 个 + 牛奶 2L","¥40"],["冷冻鸡胸 1.5kg + 豆腐 4 块","¥40"],["米面 / 燕麦 / 红薯","¥30"],["当季蔬菜 3-4kg + 水果","¥55"],["瘦肉 / 鸡腿 + 机动","¥115"]] },
+    lean: { label:"减脂餐", kcal:25, pro:1.8, note:"防掉肌", wcost:245, meals:[
+      {n:"早餐", p:"25g", rows:[["鸡蛋","2 个","12g"],["无糖豆浆","300ml","9g"],["燕麦","30g","4g"]], cost:"¥7"},
+      {n:"午餐", p:"38g", rows:[["蛋白质主菜（鸡胸/鱼虾/瘦牛肉互换）","150g","35g"],["糙米饭（碳水减半）","1 碗","—"],["时蔬","250g","—"]], cost:"¥15"},
+      {n:"练后加餐（30 分钟内）", p:"7g", rows:[["水煮蛋","1 个","7g"],["苹果","1 个","—"]], cost:"¥4"},
+      {n:"晚餐", p:"27g", rows:[["豆腐 / 去皮鸡腿轮换","200g","27g"],["红薯（碳水减半）","100g","—"],["绿叶菜","250g 少油","—"]], cost:"¥9"}
+    ], shop:[["鸡蛋 25 个 + 豆浆 1L","¥30"],["冷冻鸡胸 1.5kg","¥28"],["豆腐 6 块","¥18"],["当季蔬菜 4kg + 水果","¥55"],["燕麦 / 红薯 + 机动","¥114"]] }
+  };
+}
+// 按体重实时折算热量/蛋白目标（每公斤系数法，无需年龄性别输入）
+function mealsPlan(){ return DB.meals && (DB.meals[DB.settings.goal] || DB.meals.muscle) || seedMeals().muscle; }
+function dietTargets(){
+  const W = DB.settings.weight, P = mealsPlan();
+  return { kcal:Math.round(W*(P.kcal||33)), pro:Math.round(W*(P.pro||1.5)), k:P.pro||1.5, note:P.note||"" };
+}
+// 份量按 60kg 基准等比缩放：仅缩放“g”计量的份量与对应蛋白值，个/根/碗/ml 不动
+function dietScaler(){
+  const F = Math.max(.5, DB.settings.weight/60);
+  const r10 = n => Math.max(10, Math.round(n/10)*10);
+  const r5  = n => Math.max(5, Math.round(n/5)*5);
+  return {
+    portion: s => s.replace(/(\d+)(?=g)/g, (_,n)=> (n>=100? r10(n*F) : Math.round(n*F)) ),
+    protein: (s, portion) => /\dg/.test(portion) && !/ml/.test(portion)
+      ? s.replace(/(\d+)(?=g)/g, (_,n)=> r5(n*F)) : s
+  };
+}
+function meals(){ return mealsPlan().meals; }
+// 重绘前捕获菜单开合状态（修复：勾选打卡触发重绘后菜单开合错乱）
+function dietMenuState(){
+  const st = {};
+  document.querySelectorAll("#p-diet details.menu[data-k]").forEach(d=>{ st[d.dataset.k] = d.open; });
+  return st;
+}
+function renderDiet(){
+  const d = today(), rec = dayRec(dkey(d), dayIdxOf(d));
+  const plan = mealsPlan();
+  const M = plan.meals;
+  const md = rec.meals.filter(Boolean).length;
+  const W = DB.settings.weight;
+  const T = dietTargets(), SC = dietScaler();
+  const target = `≈${T.kcal-100}~${T.kcal+100} 千卡 · 蛋白 ${T.pro}g（${W}kg×${T.k}${T.note?" "+T.note:""}）`;
+  const st = dietMenuState();
+  // 互斥分组：餐间菜单一组、采购/交换一组（原生 name 属性）；首次渲染默认仅第一餐展开
+  const open = (k, dflt) => st[k] === undefined ? (dflt ? "open" : "") : (st[k] ? "open" : "");
+  document.getElementById("p-diet").innerHTML = `
+    <div class="p-head">
+      <div class="card" style="margin-bottom:12px">
+        <h2>今日饮食 · ${esc(plan.label)}<small>${md}/${M.length} 餐 · ${target}</small></h2>
+        <div class="meta">按当前体重 ${W}kg 折算 · 变更后在「设置」更新</div>
+        <div class="bar"><b style="width:${md/M.length*100}%"></b></div>
+      </div>
+    </div>
+    <div class="p-list">
+    <div class="card">
+      ${M.map((m,i)=>`
+        <div class="mealblk">
+          <div class="meal" style="cursor:default">
+            <h3>${esc(m.n)}</h3><span class="p">${esc(SC.protein(m.p, "1g"))} 蛋白 · ${esc(m.cost)}</span>
+          </div>
+          <details class="menu" name="meal-menu" data-k="m${i}" ${open("m"+i, i===0)}><summary>菜单</summary>
+            <table><tr><th>食物</th><th>分量</th><th>蛋白</th></tr>
+            ${m.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(SC.portion(r[1]))}</td><td><span class="tag">${esc(SC.protein(r[2], r[1]))}</span></td></tr>`).join("")}</table>
+          </details>
+        </div>`).join("")}
+      <details class="menu" name="diet-info" data-k="shop" ${open("shop")}><summary>每周采购 ≈ ¥${Math.round((plan.wcost||280)*DB.settings.weight/60/5)*5}</summary>
+        <table><tr><th>品类</th><th>参考价</th></tr>
+        ${plan.shop.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("")}</table>
+      </details>
+      <details class="menu" name="diet-info" data-k="swap" ${open("swap")}><summary>蛋白质等价交换（肉类不限种类）</summary>
+        <p class="meta" style="margin-bottom:6px">原则：<b style="color:var(--ink)">总量凑够蛋白质和热量即可</b>，红肉/白肉/鱼虾/蛋/豆制品自由互换；减脂期优先控制脂肪和烹饪用油，主食照常吃。</p>
+        <table><tr><th>20g 蛋白质 ≈</th><th>分量</th><th>参考价</th></tr>
+        <tr><td>鸡胸肉 / 瘦牛肉 / 里脊</td><td>100g</td><td>¥3</td></tr>
+        <tr><td>鱼虾（巴沙鱼/虾仁最省事）</td><td>110g</td><td>¥4</td></tr>
+        <tr><td>鸡蛋</td><td>3 个</td><td>¥2.5</td></tr>
+        <tr><td>豆腐（北豆腐）</td><td>300g</td><td>¥4.5</td></tr>
+        <tr><td>纯牛奶</td><td>550ml</td><td>¥4</td></tr></table>
+      </details>
+    </div>
+    </div>`;
+}
+function toggleMeal(i, el){
+  const rec = dayRec(dkey(today()), dayIdxOf(today()));
+  rec.meals[i] = !rec.meals[i]; save();
+  const row = el && el.closest ? el.closest(".meal") : null;
+  if(row) row.classList.toggle("done", rec.meals[i]);
+  const MM = mealsPlan().meals, md = rec.meals.filter(Boolean).length;
+  const cnt = document.getElementById("meal-cnt"), bar = document.getElementById("meal-bar");
+  if(cnt) cnt.textContent = `${md}/${MM.length} 餐`;
+  if(bar) bar.style.width = (MM.length?md/MM.length*100:0) + "%";
+  renderHeatmap();
+}
+
+// ---------- 周计划（CSS 轮播，只读，显示当前计划） ----------
+function renderWeek(){
+  const strip = document.getElementById("st-week"), dots = document.getElementById("dt-week");
+  strip.innerHTML = ""; dots.innerHTML = "";
+  const plan = activePlan();
+  plan.days.forEach((day,i)=>{
+    const col = document.createElement("div");
+    col.className = "slide";
+    col.innerHTML = `<div class="card"${i===dayIdxOf(today())?' style="border-left:3px solid var(--accent)"':""}>
+      <h2>周${"一二三四五六日"[i]} · ${esc(day.title)}${i===dayIdxOf(today())?' <span style="color:var(--accent);font-size:10.5px">← 今天</span>':""}</h2>
+      <div class="meta">${METAS[day.title] || "自定义训练日"}</div>
+      ${day.exIds.map(id=>exRow(exById(id), false, false, "")).join("") || '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">休息</div>'}
+    </div>`;
+    strip.appendChild(col);
+    dots.insertAdjacentHTML("beforeend", `<i${i===0?' class="on"':''}></i>`);
+  });
+  strip.scrollLeft = 0;
+  bindCarousel(strip, dots);
+  startAnim();
+}
+
+// ---------- 库：内置动作只读展示 + 自定义动作轮播（仅文本定制，图形取内置库） ----------
+let libPart = "全部";
+function renderLib(){
+  const all = Object.entries(DB.exercises);
+  const builtins = all.filter(([,e])=>!e.custom && (libPart==="全部"||e.part===libPart));
+  const customs = all.filter(([,e])=>e.custom && (libPart==="全部"||e.part===libPart));
+  // 筛选项动态生成：按现有动作的部位实时聚合，不再写死
+  const parts = [...new Set(all.map(([,e])=>e.part))];
+  if(libPart !== "全部" && !parts.includes(libPart)) libPart = "全部";
+  document.getElementById("p-lib").innerHTML = `
+    <div class="p-head">
+      <div class="card" style="margin-bottom:12px">
+        <h2>动作库<small>内置 ${builtins.length} 个 · 自定义 ${customs.length} 个</small></h2>
+        <div class="chips" style="margin-top:8px">
+          ${["全部",...parts].map(p=>`<span class="chip" style="cursor:pointer;${libPart===p?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setLibPart('${p}')">${p}</span>`).join("")}
+        </div>
+        <div style="margin-top:10px"><button class="btn acc" onclick="newEx()">＋ 新增自定义动作</button></div>
+      </div>
+    </div>
+    <div class="p-list">
+      <div class="card">
+        <h2 style="margin-bottom:4px">内置动作</h2>
+        ${builtins.map(([id,x])=>`
+          <div class="ex" style="cursor:default">${exFig(x.fig)}
+            <div class="info"><h3>${esc(x.name)}</h3>
+              <div class="sets">${esc(x.sets)}</div>
+              <div class="pts-line">${x.part} · ${x.equip} ｜ ${esc(x.points)}</div></div>
+          </div>`).join("")}
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2 style="margin-bottom:4px">我的自定义动作</h2>
+        ${customs.length ? customs.map(([id,x])=>`
+          <div class="ex" style="cursor:default">${exFig(x.fig)}
+            <div class="info"><h3>${esc(x.name)}</h3>
+              <div class="sets">${esc(x.sets)}</div>
+              <div class="pts-line">${x.part} · ${x.equip} ｜ ${esc(x.points)}</div></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn sm acc" onclick="editEx('${id}')">编辑</button>
+              <button class="btn sm" onclick="delEx('${id}')">删除</button>
+            </div>
+          </div>`).join("")
+        : '<div class="meta" style="padding:8px 0">当前筛选下没有自定义动作，点上方「＋ 新增」创建。图形默认为通用持铃姿势，名称/组次/要点为自定义文字。</div>'}
+      </div>
+    </div>`;
+  startAnim();
+}
+function setLibPart(p){ libPart = p; renderLib(); }
+function exForm(id, e){
+  const parts = [...new Set(Object.values(DB.exercises).map(x=>x.part).concat(PARTS))];
+  return `
+    <div class="frow"><label>名称<input id="f-name" value="${esc(e.name)}"></label></div>
+    <div class="frow"><label>部位<select id="f-part">${parts.map(p=>`<option ${e.part===p?"selected":""}>${p}</option>`).join("")}</select></label>
+      <label>器械<input id="f-equip" value="${esc(e.equip)}"></label></div>
+    <div class="frow"><label>组次（如 4 × 15）<input id="f-sets" value="${esc(e.sets)}"></label></div>
+    <div class="frow"><label>要点<textarea id="f-pts">${esc(e.points)}</textarea></label></div>`;
+}
+function newEx(){
+  const id = uid("ex");
+  DB.exercises[id] = { name:"自定义动作", fig:"custom", part:"胸", equip:"哑铃", sets:"3 × 12", points:"", custom:true };
+  save(); editEx(id);
+}
+function editEx(id){
+  if(!DB.exercises[id] || !DB.exercises[id].custom) return;  // 内置动作只读
+  const dlg = document.getElementById("dlg");
+  dlg.onapply = ()=>saveEx(id);
+  openDlg("编辑自定义动作", exForm(id, DB.exercises[id]));
+}
+function saveEx(id){
+  const e = DB.exercises[id];
+  if(!e.custom) return;                        // 双重保险：内置不可改
+  e.name = document.getElementById("f-name").value.trim() || e.name;
+  e.fig = "custom";   // 图形固定，不可编辑
+  e.part = document.getElementById("f-part").value;
+  e.equip = document.getElementById("f-equip").value;
+  e.sets = document.getElementById("f-sets").value.trim();
+  e.points = document.getElementById("f-pts").value.trim();
+  save();
+  renderLib(); renderToday(); renderWeek();
+}
+function delEx(id){
+  if(!DB.exercises[id] || !DB.exercises[id].custom) return;
+  const used = Object.values(DB.plans).flatMap(p=>p.days).filter(d=>d.exIds.includes(id));
+  if(used.length){ alert("该动作被 "+used.length+" 个训练日引用，请先在设置的计划编辑器中移除"); return; }
+  if(confirm("删除自定义动作「"+DB.exercises[id].name+"」？")){ delete DB.exercises[id]; save(); renderLib(); }
+}
+
+// ---------- 设置（含计划编辑器） ----------
+function renderSet(){
+  const s = DB.settings, bmi = s.weight/((s.height/100)**2);
+  document.getElementById("p-set").innerHTML = `
+    <div class="card" style="margin-bottom:12px">
+      <h2>个人数据</h2>
+      <div class="frow">
+        <label>身高 cm<input id="setH" type="number" value="${s.height}"></label>
+        <label>体重 kg<input id="setW" type="number" value="${s.weight}" step="0.1"></label>
+      </div>
+      <p class="meta">BMI ${bmi.toFixed(1)} · 蛋白目标 ${Math.round(s.weight*mealsPlan().pro)}g/天</p>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h2>计划管理</h2>
+      ${Object.entries(DB.plans).map(([pid,p])=>`
+        <div style="padding:10px 0;border-bottom:1px solid var(--line)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <b style="flex:1;font-size:13px">${esc(p.name)}${pid===DB.activePlanId?' <span class="tag">当前</span>':""}</b>
+            ${pid===DB.activePlanId?"":`<button class="btn sm" onclick="usePlan('${pid}')">启用</button>`}
+            <button class="btn sm" onclick="editPlan('${pid}')">编辑</button>
+            ${Object.keys(DB.plans).length>1?`<button class="btn sm" onclick="delPlan('${pid}')">删除</button>`:""}
+          </div>
+        </div>`).join("")}
+      <div style="margin-top:10px"><button class="btn acc" onclick="newPlan()">＋ 新建计划</button></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h2>饮食方案管理</h2>
+      ${Object.entries(DB.meals).map(([gid,p])=>`
+        <div style="padding:10px 0;border-bottom:1px solid var(--line)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <b style="flex:1;font-size:13px">${esc(p.label)}${gid===s.goal?' <span class="tag">当前</span>':""}</b>
+            ${gid===s.goal?"":`<button class="btn sm" onclick="setGoal('${gid}')">启用</button>`}
+            ${Object.keys(DB.meals).length>1?`<button class="btn sm" onclick="delMeal('${gid}')">删除</button>`:""}
+          </div>
+          <div style="font-size:11px;color:var(--mut);margin-top:2px">≈${p.kcal} 千卡/kg · 蛋白 ${p.pro}g/kg${p.note?" · "+esc(p.note):""} · ${p.meals.length} 餐</div>
+        </div>`).join("")}
+      <p class="meta" style="margin-top:8px">${(()=>{const T=dietTargets();return `按 ${s.weight}kg 折算：≈${T.kcal-100}~${T.kcal+100} 千卡 · 蛋白 ${T.pro}g/天`})()}</p>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h2>热力图时间范围</h2>
+      <div class="frow" style="margin-top:4px">
+        ${[[13,"近3个月"],[26,"近6个月"],[52,"近1年"]].map(([w,l])=>
+          `<b class="btn" style="flex:1;text-align:center;${s.hmWeeks===w?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setRange(${w})">${l}</b>`).join("")}
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h2 style="margin-bottom:6px">数据备份</h2>
+      <p class="meta" style="margin-bottom:8px">数据保存在本机浏览器，换设备前请导出备份；导入仅接受本站导出的备份文件。</p>
+      <button class="btn" onclick="exportData()">导出 JSON</button>
+      <button class="btn" onclick="document.getElementById('imp').click()">导入 JSON</button>
+      <button class="btn" style="border-color:#a33;color:#a33" onclick="resetData()">重置数据</button>
+      <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+    <div class="card">
+      <details class="menu" open style="border:none;margin:0">
+        <summary style="font-size:13px">负重选择 / 进阶路线 / 恢复要点</summary>
+        <p class="meta"><b style="color:var(--ink)">增肌原理</b>：选择能标准完成目标次数、最后 2-3 次接近力竭的重量；下放 3 秒慢速离心 + 组间休息 30-45 秒 + 单侧训练。<br>
+        <b style="color:var(--ink)">进阶</b>：第 1-2 周强度减半；第 3-4 周每组 +2~5 次；第 5 周起仍轻松就加重量。<br>
+        <b style="color:var(--ink)">恢复</b>：酸痛 2-3 天正常；睡眠 7.5h+；水 2000ml+；体重每周 +0.2~0.5kg。</p>
+      </details>
+    </div>`;
+  document.getElementById("hdr").textContent = `${s.height} / ${s.weight} · BMI ${bmi.toFixed(1)}`;
+  document.getElementById("setH").onchange = saveSet;
+  document.getElementById("setW").onchange = saveSet;
+}
+function saveSet(){
+  DB.settings.height = +document.getElementById("setH").value || 172;
+  DB.settings.weight = +document.getElementById("setW").value || 60;
+  save(); renderSet(); renderDiet();
+}
+function setRange(w){ DB.settings.hmWeeks = w; save(); renderHeatmap(); renderSet(); }
+function setGoal(g){ DB.settings.goal = g; save(); renderDiet(); renderSet(); }
+function delMeal(gid){
+  const keys = Object.keys(DB.meals);
+  if(keys.length <= 1){ alert("至少保留一个饮食方案"); return; }
+  const p = DB.meals[gid];
+  const active = DB.settings.goal === gid;
+  if(!confirm(`删除饮食方案「${p.label}」？${active?"\n该方案正在使用，删除后将自动切换到其他方案。":""}\n此操作不可恢复（AI 定制包可重新导入）。`)) return;
+  delete DB.meals[gid];
+  if(active) DB.settings.goal = Object.keys(DB.meals)[0];
+  save(); renderSet(); renderDiet();
+}
+
+// --- 计划编辑器（Dialog 弹窗，改动实时生效，保存后统一刷新） ---
+let planDlgPid = null;
+function editPlan(pid){
+  planDlgPid = pid;
+  const dlg = document.getElementById("dlg");
+  dlg.onapply = ()=>{ planDlgPid = null; renderSet(); renderToday(); renderWeek(); renderHeatmap(); };
+  openDlg("编辑计划", planEditor(pid, DB.plans[pid]));
+}
+function refreshPlanDlg(){
+  if(planDlgPid) refreshDlg("编辑计划", planEditor(planDlgPid, DB.plans[planDlgPid]));
+}
+function usePlan(pid){
+  DB.activePlanId = pid;
+  const t = today(); delete DB.days[dkey(t)];   // 新计划当天重新生成快照
+  save(); planDlgPid = null;
+  renderSet(); renderToday(); renderWeek(); renderHeatmap(); startAnim();
+}
+function delPlan(pid){
+  if(pid===DB.activePlanId){ alert("不能删除当前启用的计划"); return; }
+  if(confirm("删除计划？")){ delete DB.plans[pid]; save(); renderSet(); }
+}
+function newPlan(){
+  const dlg = document.getElementById("dlg");
+  dlg.onapply = ()=>{
+    const name = document.getElementById("np-name").value.trim();
+    if(!name) return;
+    const pid = uid("pl");
+    DB.plans[pid] = { name, days: Array.from({length:7},(_,i)=>({title:"第"+(i+1)+"天", exIds:[]})) };
+    DB.activePlanId = pid;               // 新建即启用（空计划，进入编辑器添加动作）
+    save();
+    renderSet(); renderToday(); renderWeek(); renderHeatmap(); startAnim();
+    editPlan(pid);                        // 直接进入编辑器
+  };
+  openDlg("新建计划", `<div class="frow"><label>计划名称<input id="np-name" value="我的计划"></label></div>`);
+}
+function planEditor(pid, p){
+  return `
+    <div class="frow"><label>计划名称<input value="${esc(p.name)}" onchange="renamePlan('${pid}', this.value)"></label></div>
+    ${p.days.map((day,di)=>`
+      <div style="margin-top:10px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <b style="font-size:12px">周${"一二三四五六日"[di]}</b>
+          <input value="${esc(day.title)}" style="flex:1;padding:4px 6px;border:1px solid var(--line);font-size:12px"
+            onchange="renameDay('${pid}',${di},this.value)">
+        </div>
+        <div style="margin-top:6px">
+          ${day.exIds.map((id,i)=>{
+            const e = exById(id);
+            return `<div class="exitem">
+              <span class="idx">${i+1}</span><span class="nm">${e?e.name:"?"}</span>
+              <span class="ops">
+                <span onclick="moveEx('${pid}',${di},${i},-1)">↑</span>
+                <span onclick="moveEx('${pid}',${di},${i},1)">↓</span>
+                <span class="del" onclick="removeEx('${pid}',${di},${i})">✕</span>
+              </span>
+            </div>`;
+          }).join("") || '<div class="meta">未安排动作</div>'}
+        </div>
+        <select class="btn sm" style="margin-top:6px;max-width:100%" onchange="addEx('${pid}',${di},this.value);this.selectedIndex=0">
+          <option value="">＋ 从动作库添加…</option>
+          ${Object.entries(DB.exercises).map(([id,e])=>`<option value="${id}">${esc(e.name)}（${e.part}）</option>`).join("")}
+        </select>
+      </div>`).join("")}`;
+}
+function afterPlanChange(pid){
+  save(); renderSet(); renderToday(); renderWeek(); refreshPlanDlg();
+}
+function renamePlan(pid, v){ if(v.trim()){ DB.plans[pid].name = v.trim(); afterPlanChange(pid); } }
+function renameDay(pid, di, v){ if(v.trim()){ DB.plans[pid].days[di].title = v.trim(); afterPlanChange(pid); } }
+function addEx(pid, di, id){ if(!id) return; DB.plans[pid].days[di].exIds.push(id); afterPlanChange(pid); }
+function removeEx(pid, di, i){ DB.plans[pid].days[di].exIds.splice(i,1); afterPlanChange(pid); }
+function moveEx(pid, di, i, dir){
+  const arr = DB.plans[pid].days[di].exIds, j = i+dir;
+  if(j<0 || j>=arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]]; afterPlanChange(pid);
+}
+
+// ---------- 热力图（按月分列，自动定位今天） ----------
+function levelOf(rec){ if(!rec||!rec.ex) return 0; const r = rec.ex.filter(x=>x.done).length/rec.ex.length; return r===0?0:r<0.34?1:r<0.67?2:r<1?3:4; }
+function renderHeatmap(){
+  const hm = document.getElementById("hm"); hm.innerHTML = "";
+  const months = {"13":3,"26":6,"52":12}[String(DB.settings.hmWeeks)] || 3;
+  const T = today().getTime(), nowM = today().getUTCMonth(), nowY = today().getUTCFullYear();
+  for(let mi = months-1; mi >= 0; mi--){
+    let y = nowY, m = nowM - mi;
+    while(m < 0){ m += 12; y--; }
+    const first = new Date(Date.UTC(y, m, 1));
+    const dim = new Date(Date.UTC(y, m+1, 0)).getUTCDate();
+    const off = (first.getUTCDay()+6)%7;
+    const col = document.createElement("div"); col.className = "mcol";
+    const grid = document.createElement("div"); grid.className = "mgrid";
+    for(let c=0; c<off; c++) grid.insertAdjacentHTML("beforeend","<i></i>");
+    for(let d=1; d<=dim; d++){
+      const date = new Date(Date.UTC(y, m, d)), ds = dkey(date);
+      const b = document.createElement("button");
+      if(date.getTime() > T){ b.className = "future"; }
+      else {
+        const rec = DB.days[ds];
+        b.className = "l"+levelOf(rec) + (ds===dkey(today())?" today":"");
+        b.onclick = ()=>showDay(ds);
+      }
+      grid.appendChild(b);
+    }
+    col.appendChild(grid);
+    col.insertAdjacentHTML("beforeend", `<div class="mlab">${m+1}月</div>`);
+    hm.appendChild(col);
+  }
+  const first = Object.keys(DB.days).filter(k=>{const r=DB.days[k]; return r.ex&&r.ex.some(x=>x.done)||r.meals&&r.meals.some(Boolean);}).sort()[0];
+  document.getElementById("hmL").textContent = first ? "自 "+first+" 起" : "今天开始记录";
+  const wrap = document.getElementById("hm");
+  requestAnimationFrame(()=>{ wrap.scrollLeft = wrap.scrollWidth; });
+}
+function showDay(ds){
+  const pop = document.getElementById("daypop");
+  const rec = DB.days[ds];
+  const wd = (new Date(ds+"T00:00:00Z").getUTCDay()+6)%7;
+  let planName = "";
+  let list = [];
+  if(rec && rec.ex){
+    const p = DB.plans[rec.planId] || activePlan();
+    planName = p ? p.name : "";
+    list = rec.ex.map(x=>{ const e = x.id?exById(x.id):null; return { n: e?esc(e.name):"(已删除动作)", done:x.done }; });
+  } else if(rec && rec.meals && rec.meals.some(Boolean)){
+    planName = "仅饮食";
+  }
+  let html = `<h3>${ds}${planName?" · "+esc(planName):""}</h3>`;
+  if(!list.length){ html += `<div class="row"><span class="no">未训练</span></div>`; }
+  else html += list.map(x=>`<div class="row"><span>${x.n}</span><span class="${x.done?"ok":"no"}">${x.done?"✓ 完成":"未完成"}</span></div>`).join("");
+  if(rec && rec.meals && rec.meals.some(Boolean)){
+    html += `<div style="margin-top:8px;font-size:11px;color:var(--mut)">饮食</div>` +
+      rec.meals.map((v,i)=>`<div class="row"><span>${esc((mealsPlan().meals[i]||{}).n)||"餐"}</span><span class="${v?"ok":"no"}">${v?"✓":"—"}</span></div>`).join("");
+  }
+  html += `<div class="foot">${levelOf(rec)===4?"全勤日 🏆":"完成比例对应热力图颜色深浅"}</div>`;
+  pop.innerHTML = html;
+  if(pop.open) pop.hidePopover();
+  pop.showPopover();
+}
+let popClosedAt = 0;
+document.getElementById("daypop").addEventListener("toggle", e=>{ if(e.newState==="closed") popClosedAt = Date.now(); });
+window.addEventListener("click", e=>{ if(Date.now()-popClosedAt < 250){ e.stopPropagation(); e.preventDefault(); } }, true);
+
+// ---------- 数据导入导出 ----------
+function exportData(){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(DB)],{type:"application/json"}));
+  a.download = "hybh-"+dkey(today())+".json"; a.click();
+}
+function importData(e){
+  const f = e.target.files[0]; if(!f) return;
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    let obj;
+    try{ obj = JSON.parse(fr.result); }catch(_){ alert("JSON 格式错误"); return; }
+    if(obj && obj.kind === "hybh-custom"){ applyCustomPackage(obj); return; }   // AI 定制包
+    if(obj && obj.schemaVersion){ DB = sanitizeBackup(obj); save(); renderAll(); return; }  // 全量备份（结构校验 + key 规范化）
+    alert("无法识别的文件：既不是全量备份，也不是 AI 定制包");
+  };
+  fr.readAsText(f);
+}
+// 备份导入校验：key 只允许安全字符（进 onclick 属性），结构畸形时兜底，防属性注入与自伤 DoS
+const SAFE_KEY = /^[a-z0-9-]{1,40}$/;
+function sanitizeBackup(o){
+  const fixKey = (k, prefix) => SAFE_KEY.test(k) ? k : prefix + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  const out = { v:1, schemaVersion:+o.schemaVersion||6, days:{}, exercises:{}, plans:{}, meals:{},
+    settings:{ height:clamp(o.settings&&o.settings.height,100,250,172), weight:clamp(o.settings&&o.settings.weight,25,300,60),
+      goal:SAFE_KEY.test(o.settings&&o.settings.goal)?o.settings.goal:"muscle", hmWeeks:[13,26,52].includes(o.settings&&o.settings.hmWeeks)?o.settings.hmWeeks:13 },
+    activePlanId:SAFE_KEY.test(o.activePlanId)?o.activePlanId:"" };
+  Object.entries(o.exercises && typeof o.exercises==="object" ? o.exercises : {}).forEach(([k,e])=>{
+    if(!e || typeof e!=="object") return;
+    out.exercises[fixKey(k,"ex")] = { name:str(e.name,20)||"未命名", fig:CUSTOM_FIGS.includes(e.fig)?e.fig:"custom",
+      part:PARTS.includes(e.part)?e.part:"核心", equip:str(e.equip,10)||"自重", sets:str(e.sets,20)||"3 × 12",
+      points:str(e.points,120), custom:!!e.custom };
+  });
+  Object.entries(o.plans && typeof o.plans==="object" ? o.plans : {}).forEach(([k,p])=>{
+    if(!p || typeof p!=="object" || !Array.isArray(p.days)) return;
+    const days = p.days.slice(0,7).map(d=>({ title:str(d&&d.title,10)||"训练日",
+      exIds:(Array.isArray(d&&d.exIds)?d.exIds:[]).map(x=>typeof x==="string"&&SAFE_KEY.test(x)?x:null) }));
+    while(days.length<7) days.push({ title:"休息日", exIds:[] });
+    out.plans[fixKey(k,"pl")] = { name:str(p.name,16)||"未命名计划", days };
+  });
+  Object.entries(o.meals && typeof o.meals==="object" ? o.meals : {}).forEach(([k,mv])=>{
+    if(!mv || typeof mv!=="object" || !Array.isArray(mv.meals)) return;
+    out.meals[fixKey(k,"ml")] = { label:str(mv.label,12)||"方案", kcal:clamp(mv.kcal,20,45,30), pro:clamp(mv.pro,1.2,2.5,1.5),
+      note:str(mv.note,8), wcost:clamp(mv.wcost,100,600,280),
+      meals:mv.meals.filter(x=>x&&typeof x==="object").slice(0,6).map(x=>({ n:str(x.n,16)||"餐", p:str(x.p,8)||"—", cost:str(x.cost,6)||"—",
+        rows:(Array.isArray(x.rows)?x.rows:[]).filter(r=>Array.isArray(r)).slice(0,10).map(r=>[str(r[0],30),str(r[1],16)||"—",str(r[2],8)||"—"]) })),
+      shop:(Array.isArray(mv.shop)?mv.shop:[]).filter(r=>Array.isArray(r)).slice(0,10).map(r=>[str(r[0],24),str(r[1],8)]) };
+  });
+  Object.entries(o.days && typeof o.days==="object" ? o.days : {}).forEach(([k,v])=>{
+    if(SAFE_KEY.test(k) && v && typeof v==="object") out.days[k] = { planId:SAFE_KEY.test(v.planId)?v.planId:"", ex:Array.isArray(v.ex)?v.ex.filter(x=>x&&typeof x==="object").map(x=>({id:x.id&&SAFE_KEY.test(x.id)?x.id:null,done:!!x.done})):[], meals:Array.isArray(v.meals)?v.meals.slice(0,8).map(Boolean):Array(4).fill(false) };
+  });
+  if(!out.plans[out.activePlanId]) out.activePlanId = Object.keys(out.plans)[0] || "";
+  if(!out.meals[out.settings.goal]) out.settings.goal = Object.keys(out.meals)[0] || "muscle";
+  if(!out.exercises || !Object.keys(out.exercises).length){ /* 空动作库由 migrate 兜底补种 */ }
+  return out;
+}
+
+// ---------- AI 定制包导入（契约见 llms.txt / SKILL.md） ----------
+// 原则：幂等导入——动作按名字复用；同名计划、同名 label 饮食方案为「更新」而非重复新增；内置数据保留可切回
+const CUSTOM_FIGS = ["squat","pushup","fly","raise","dead","row","curl","core","bridge","stretch","rest"];
+const clamp = (n,a,b,d)=>{ n = +n; return Number.isFinite(n) ? Math.min(b, Math.max(a, n)) : d; };
+const str = (v,n)=>String(v==null?"":v).trim().slice(0,n);
+function applyCustomPackage(pkg){
+  const warn = [], newEx = {}, newPlans = {}, updPlans = [];
+  const name2id = {};
+  Object.entries(DB.exercises).forEach(([id,e])=>{ if(!name2id[e.name]) name2id[e.name] = id; });
+
+  // 1. 动作：白名单校验，非法值降级；重名复用已有动作（单点维护）
+  (Array.isArray(pkg.exercises) ? pkg.exercises : []).forEach(x=>{
+    if(!x || typeof x !== "object") return;
+    const name = str(x.name, 20);
+    if(!name || name2id[name]){ if(name) warn.push(`动作「${name}」已存在，直接引用`); return; }
+    if(x.fig && !CUSTOM_FIGS.includes(x.fig)) warn.push(`动作「${name}」图标 fig="${x.fig}" 非法，已用默认图标`);
+    if(x.part && !PARTS.includes(x.part)) warn.push(`动作「${name}」部位 "${x.part}" 非法，已归入「核心」`);
+    const id = uid("ex");
+    newEx[id] = { name, fig: CUSTOM_FIGS.includes(x.fig) ? x.fig : "custom",
+      part: PARTS.includes(x.part) ? x.part : "核心",
+      equip: str(x.equip, 10) || "自重", sets: str(x.sets, 20) || "3 × 12",
+      points: str(x.points, 120), custom:true };
+    name2id[name] = id;
+  });
+
+  // 2. 计划：exNames → exIds 解析；不足 7 天用休息日补齐；同名计划更新（幂等）
+  const planByName = {};
+  Object.entries(DB.plans).forEach(([pid,p])=>{ if(!planByName[p.name]) planByName[p.name] = pid; });
+  const restFill = ["全身拉伸","散步 / 快走"].map(n=>name2id[n]).filter(Boolean);
+  Object.values(pkg.plans && typeof pkg.plans === "object" ? pkg.plans : {}).forEach(p=>{
+    if(!p || typeof p !== "object" || !Array.isArray(p.days)) return;
+    const days = p.days.slice(0,7).map(d=>({
+      title: str(d && d.title, 10) || "训练日",
+      exIds: ((d && Array.isArray(d.exNames)) ? d.exNames : []).map(n=>name2id[str(n,20)]).filter(Boolean)
+    }));
+    while(days.length < 7) days.push({ title:"休息日", exIds:[...restFill] });
+    const name = str(p.name, 16) || "AI 定制计划";
+    const existId = planByName[name];
+    if(existId) updPlans.push([existId, days]);
+    else { const id = uid("pl"); newPlans[id] = { name, days }; planByName[name] = id; }
+  });
+
+  // 3. 饮食方案（可选）：同名 label 更新（幂等）；系数夹紧到安全区间；confirm 前不写 DB
+  let mealObj = null;
+  const m = pkg.meals;
+  if(m && typeof m === "object" && Array.isArray(m.meals)){
+    const meals = m.meals.filter(x=>x && typeof x === "object" && str(x.n,16)).slice(0,6).map(x=>({
+      n: str(x.n,16), p: str(x.p,8) || "—", cost: str(x.cost,6) || "—",
+      rows: (Array.isArray(x.rows) ? x.rows : []).filter(r=>Array.isArray(r) && str(r[0],30))
+        .map(r=>[str(r[0],30), str(r[1],16) || "—", str(r[2],8) || "—"])
+    })).filter(x=>x.rows.length);
+    if(meals.length >= 3){
+      mealObj = {
+        label: str(m.label, 12) || "AI 定制餐",
+        kcal: clamp(m.kcal, 20, 45, 30), pro: clamp(m.pro, 1.2, 2.5, 1.5),
+        note: str(m.note, 8), wcost: clamp(m.wcost, 100, 600, 280),
+        meals, shop: (Array.isArray(m.shop) ? m.shop : []).filter(r=>Array.isArray(r))
+          .map(r=>[str(r[0],24), str(r[1],8)])
+      };
+      const byLabel = {};
+      Object.entries(DB.meals).forEach(([k,v])=>{ if(!byLabel[v.label]) byLabel[v.label] = k; });
+      mealObj._existKey = byLabel[mealObj.label] || null;
+    } else warn.push("饮食方案少于 3 餐有效配置，已忽略");
+  }
+
+  const plN = Object.keys(newPlans).length, plU = updPlans.length;
+  if(!plN && !plU && !mealObj){
+    alert("定制包中没有可导入的计划或饮食方案，已取消。"); return;
+  }
+
+  // 4. 个人数据（可选，夹紧）
+  if(pkg.settings && typeof pkg.settings === "object"){
+    DB.settings.height = clamp(pkg.settings.height, 100, 250, DB.settings.height);
+    DB.settings.weight = clamp(pkg.settings.weight, 25, 300, DB.settings.weight);
+  }
+
+  const exN = Object.keys(newEx).length;
+  const mealLine = mealObj
+    ? (mealObj._existKey ? `· 更新同名饮食方案「${mealObj.label}」（保持原位置，导入后启用）` : `· 新增饮食方案「${mealObj.label}」（导入后启用）`)
+    : "· 无饮食方案";
+  const lines = [
+    `AI 定制包导入预览（重复导入自动去重）：`,
+    `· 新增动作 ${exN} 个（重名自动复用已有动作）`,
+    `· 新增计划 ${plN} 套${plN ? "（导入后自动启用第一套）" : ""}`,
+    plU ? `· 更新同名计划 ${plU} 套（保持原位置与启用状态）` : "",
+    mealLine,
+    warn.length ? `\n提示：\n· ${warn.slice(0,6).join("\n· ")}${warn.length>6?"\n· …":""}` : "",
+    `\n确认导入？`
+  ].filter(Boolean).join("\n");
+  if(!confirm(lines)) return;
+
+  Object.assign(DB.exercises, newEx);
+  Object.assign(DB.plans, newPlans);
+  updPlans.forEach(([pid, days])=>{ DB.plans[pid].days = days; });
+  if(plN) DB.activePlanId = Object.keys(newPlans)[0];
+  else if(plU && !updPlans.some(([pid])=>pid===DB.activePlanId)) DB.activePlanId = updPlans[0][0];
+  if(mealObj){
+    const k = mealObj._existKey || uid("ml");
+    delete mealObj._existKey;
+    DB.meals[k] = mealObj;
+    DB.settings.goal = k;
+  }
+  save(); renderAll();
+  alert(`导入完成：动作 +${exN} · 计划 新增${plN}/更新${plU}${mealObj?" · 饮食方案已启用":""}`);
+}
+function resetData(){
+  if(confirm("确定重置全部数据？\n动作库、计划、打卡记录将清空并恢复初始状态，此操作不可恢复（可先导出备份）。")){
+    localStorage.removeItem(KEY);
+    location.reload();
+  }
+}
+
+// ---------- AI 定制 tab（SKILL 复制 + JSON 粘贴导入） ----------
+function renderAi(){
+  const skill = (document.getElementById("skill-src").textContent || "").trim();
+  document.getElementById("p-ai").innerHTML = `
+    <div class="p-head">
+      <div class="card" style="margin-bottom:12px">
+        <h2>AI 定制计划<small>发给 AI → 回贴 JSON → 一键导入</small></h2>
+        <div class="meta">① 点「一键复制」把 SKILL 文本发给任意 AI（附上你的身高体重、目标、器材、伤病史）<br>② AI 会返回一份定制包 JSON，粘贴到下方完成导入</div>
+      </div>
+    </div>
+    <div class="p-list">
+    <div class="card">
+      <h2>第一步 · SKILL 契约<button class="btn sm" style="float:right" onclick="copySkill()">一键复制</button></h2>
+      <p class="meta" style="margin:6px 0 0">已包含数据格式、内置动作清单与安全护栏（约 ${skill.length} 字），任何大模型据此即可生成合法定制包。</p>
+      <details class="menu"><summary>查看全文</summary>
+        <pre style="font-family:ui-monospace,monospace;font-size:10.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--ink);">${esc(skill)}</pre>
+      </details>
+    </div>
+    <div class="card">
+      <h2>第二步 · 粘贴 AI 返回的 JSON</h2>
+      <textarea id="pkg-box" placeholder='粘贴 AI 生成的定制包 JSON（应以 {"kind":"hybh-custom", ...} 开头）' style="display:block;width:100%;height:200px;resize:vertical;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6"></textarea>
+      <div style="margin-top:8px"><button class="btn acc" onclick="importPkgText()">导入定制包</button></div>
+      <p class="meta" style="margin-top:6px">导入与现有数据并存：内置两套计划与两种饮食保留，可随时切换；重置数据即可恢复初始状态。</p>
+    </div>
+    </div>`;
+}
+function copySkill(){
+  const text = (document.getElementById("skill-src").textContent || "").trim();
+  const ok = ()=>alert("SKILL 已复制到剪贴板\n发给 AI 时附上你的需求即可");
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(ok).catch(()=>fallbackCopy(text, ok));
+  }else{ fallbackCopy(text, ok); }
+}
+function fallbackCopy(text, ok){
+  const t = document.createElement("textarea");
+  t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+  document.body.appendChild(t); t.select();
+  try{ document.execCommand("copy"); ok(); }catch(_){ alert("复制失败，请在「查看全文」中手动全选复制"); }
+  document.body.removeChild(t);
+}
+function importPkgText(){
+  const v = document.getElementById("pkg-box").value.trim();
+  if(!v){ alert("请先粘贴 AI 返回的定制包 JSON"); return; }
+  let obj;
+  try{ obj = JSON.parse(v); }catch(_){ alert("JSON 格式错误：请检查是否完整复制（从 { 到 } 全选）"); return; }
+  if(!obj || obj.kind !== "hybh-custom"){
+    alert("这不是 AI 定制包（缺少 kind:\"hybh-custom\"）\n请让 AI 严格按 SKILL 中的数据契约重新生成"); return;
+  }
+  applyCustomPackage(obj);
+}
+
+// ---------- 分享图（Canvas 生成：今日进度 + 周计划 + 饮食方案 + 站点二维码） ----------
+// QR 生成器：byte 模式、ECC 级别 L、版本 1-10 自适应（精简自 Nayuki qrcodegen 公开算法）
+function qrMatrix(text, forceMask){
+  const CAP  = [17,32,53,78,106,134,154,192,230,272];   // L 级用户数据容量（字节）
+  const DCW  = [19,34,55,80,108,136,156,194,232,274];   // L 级数据码字数（填充目标）
+  const ECCW = [7,10,15,20,26,18,20,24,30,18];          // 每块 ECC 码字数
+  const NBLK = [1,1,1,1,1,2,2,2,2,2];
+  const ALIGN = [[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50]];
+  const gfMul = (x,y)=>{ let z=0; for(let i=7;i>=0;i--){ z=(z<<1)^((z>>>7)*0x11D); z ^= ((y>>>i)&1)*x; } return z&0xFF; };
+  const rsDiv = deg=>{ const r=new Array(deg).fill(0); r[deg-1]=1; let root=1;
+    for(let i=0;i<deg;i++){ for(let j=0;j<deg;j++){ r[j]=gfMul(r[j],root); if(j+1<deg) r[j]^=r[j+1]; } root=gfMul(root,2); } return r; };
+  const rsRem = (data,div)=>{ const r=div.map(()=>0);
+    for(const b of data){ const f=b^r.shift(); r.push(0); div.forEach((c,i)=>r[i]^=gfMul(c,f)); } return r; };
+  const bytes = Array.from(new TextEncoder().encode(text));
+  const ver = CAP.findIndex(c=>bytes.length<=c);
+  if(ver<0) throw new Error("二维码内容过长");
+  const bits=[];
+  const push=(v,len)=>{ for(let i=len-1;i>=0;i--) bits.push((v>>>i)&1); };
+  push(4,4); push(bytes.length, ver<9?8:16); bytes.forEach(b=>push(b,8));
+  push(0, Math.min(4, DCW[ver]*8-bits.length));
+  while(bits.length%8) bits.push(0);
+  const dc=[]; for(let i=0;i<bits.length;i+=8){ let b=0; for(let j=0;j<8;j++) b=(b<<1)|bits[i+j]; dc.push(b); }
+  while(dc.length<DCW[ver]) dc.push(dc.length%2===0?0xEC:0x11);
+  // 分块 + ECC + 交织（支持的 2 块版本均为等大块）
+  const n=NBLK[ver], per=dc.length/n, ecc=ECCW[ver];
+  const blocks=[], eccs=[];
+  for(let i=0;i<n;i++){ const d=dc.slice(i*per,(i+1)*per); blocks.push(d); eccs.push(rsRem(d, rsDiv(ecc))); }
+  const all=[];
+  for(let i=0;i<per;i++) blocks.forEach(b=>all.push(b[i]));
+  for(let i=0;i<ecc;i++) eccs.forEach(e=>all.push(e[i]));
+  // 矩阵与功能图形（ver 为 0 基索引：0→版本1，size=4*版本+17=ver*4+21）
+  const size=ver*4+21;
+  const M=Array.from({length:size},()=>new Array(size).fill(null));
+  const FN=Array.from({length:size},()=>new Array(size).fill(false));
+  const setFn=(x,y,d)=>{ M[y][x]=d; FN[y][x]=true; };
+  const getBit=(x,i)=>((x>>>i)&1)===1;
+  function finder(cx,cy){ for(let dy=-4;dy<=4;dy++) for(let dx=-4;dx<=4;dx++){ const x=cx+dx,y=cy+dy;
+    if(x<0||x>=size||y<0||y>=size) continue; const dist=Math.max(Math.abs(dx),Math.abs(dy)); setFn(x,y, dist!==2&&dist!==4); } }
+  function writeFormatBits(set, mask){ const data=1<<3|mask; let rem=data;
+    for(let i=0;i<10;i++) rem=(rem<<1)^((rem>>>9)*0x537);
+    const f=((data<<10)|rem)^0x5412;
+    for(let i=0;i<=5;i++) set(8, i, getBit(f,i));       // 第一副本：col 8, rows 0-5
+    set(8, 7, getBit(f,6)); set(8, 8, getBit(f,7)); set(7, 8, getBit(f,8));
+    for(let i=9;i<15;i++) set(14-i, 8, getBit(f,i));    // row 8, cols 5-0
+    for(let i=0;i<8;i++) set(size-1-i, 8, getBit(f,i));   // 第二副本：row 8, cols 自右向左
+    for(let i=8;i<15;i++) set(8, size-15+i, getBit(f,i)); // col 8, rows 自下而上
+    set(8,size-8,true); }
+  function versionInfo(){ if(ver<7) return;
+    let rem=ver; for(let i=0;i<12;i++) rem=(rem<<1)^((rem>>>11)*0x1F25);
+    const f=(ver<<12)|rem;
+    for(let i=0;i<18;i++){ const b=getBit(f,i), a=size-11+i%3, c=Math.floor(i/3); setFn(a,c,b); setFn(c,a,b); } }
+  finder(3,3); finder(size-4,3); finder(3,size-4);
+  for(let i=0;i<size;i++){ if(!FN[6][i]&&M[6][i]===null) setFn(i,6,i%2===0); if(!FN[i][6]&&M[i][6]===null) setFn(6,i,i%2===0); }
+  const ap=ALIGN[ver];
+  for(let i=0;i<ap.length;i++) for(let j=0;j<ap.length;j++){
+    if(FN[ap[i]][ap[j]]) continue;
+    for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) setFn(ap[j]+dx,ap[i]+dy, Math.max(Math.abs(dx),Math.abs(dy))!==1); }
+  writeFormatBits(setFn, 0); versionInfo();
+  // 数据放置（之字形，跳过第 6 列）
+  let bi=0;
+  for(let right=size-1; right>=1; right-=2){
+    if(right===6) right=5;
+    for(let v=0; v<size; v++) for(let j=0;j<2;j++){
+      const x=right-j, up=((right+1)&2)===0, y=up?size-1-v:v;
+      if(M[y][x]===null && bi<all.length*8){ M[y][x]=getBit(all[bi>>3], 7-(bi&7)); bi++; }
+    }
+  }
+  // 掩码评估（惩罚近似：仅影响掩码选择，不影响可扫描性）
+  const MASKS=[(x,y)=>(x+y)%2===0,(x,y)=>y%2===0,(x,y)=>x%3===0,(x,y)=>(x+y)%3===0,
+    (x,y)=>(Math.floor(x/3)+Math.floor(y/2))%2===0,(x,y)=>(x*y%2+x*y%3)===0,
+    (x,y)=>((x*y%2)+(x*y%3))%2===0,(x,y)=>(((x+y)%2)+(x*y%3))%2===0];
+  let best=null, bestScore=Infinity;
+  for(let mk=0; mk<8; mk++){
+    // 全程在副本 g 上评估：数据区应用掩码，格式位按 mk 重写，共享 M 零污染
+    const g=M.map((row,y)=>row.map((v,x)=> v===null ? null : (FN[y][x] ? v : v^MASKS[mk](x,y))));
+    writeFormatBits((x,y,d)=>{ g[y][x]=d; }, mk);
+    // 惩罚
+    let p=0;
+    for(let y=0;y<size;y++){ let run=1; for(let x=1;x<size;x++){ if(g[y][x]===g[y][x-1]){ run++; if(run===5) p+=3; else if(run>5) p++; } else run=1; } }
+    for(let x=0;x<size;x++){ let run=1; for(let y=1;y<size;y++){ if(g[y][x]===g[y-1][x]){ run++; if(run===5) p+=3; else if(run>5) p++; } else run=1; } }
+    for(let y=0;y<size-1;y++) for(let x=0;x<size-1;x++){ const c=g[y][x]; if(c===g[y][x+1]&&c===g[y+1][x]&&c===g[y+1][x+1]) p+=3; }
+    const pat=[1,0,1,1,1,0,1];
+    const at=(x,y)=> x>=0&&x<size&&y>=0&&y<size ? g[y][x] : null;
+    for(let y=0;y<size;y++) for(let x=0;x<=size-7;x++){
+      let ok=true; for(let i=0;i<7;i++) if(at(x+i,y)!==!!pat[i]){ ok=false; break; }
+      if(ok && (at(x-1,y)===false||x===0) && (at(x+7,y)===false||x+7===size)) p+=40;
+      ok=true; for(let i=0;i<7;i++) if(at(y,x+i)!==!!pat[i]){ ok=false; break; }
+      if(ok && (at(y,x-1)===false||y===0) && (at(y,x+7)===false||y+7===size)) p+=40;
+    }
+    let dark=0; g.forEach(r=>r.forEach(v=>{ if(v) dark++; }));
+    p += Math.ceil(Math.abs(dark*20-size*size*10)/(size*size))*10;
+    if(p<bestScore){ bestScore=p; best=mk; }
+  }
+  // 应用最优掩码 + 对应格式位（forceMask 用于测试对齐参考实现）
+  let mk = (forceMask != null ? forceMask : best);
+  if(mk<0||mk>7) mk=0;
+  M.forEach((row,y)=>row.forEach((v,x)=>{ if(!FN[y][x]) row[x]=v^MASKS[mk](x,y); }));
+  writeFormatBits(setFn, mk);
+  return { size, m:M };
+}
+function drawQR(ctx, x0, y0, sizePx, text, fg, bg){
+  const { size, m } = qrMatrix(text);
+  const q = Math.floor(sizePx / (size + 8));          // 模块像素（含 4 模块静区）
+  const off = 4 * q;
+  ctx.fillStyle = bg; ctx.fillRect(x0, y0, sizePx, sizePx);
+  ctx.fillStyle = fg;
+  for(let y=0; y<size; y++) for(let x=0; x<size; x++)
+    if(m[y][x]) ctx.fillRect(x0+off+x*q, y0+off+y*q, q, q);
+}
+// 分享卡
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawShareCard(){
+  const C = { bg:"#f2f3f2", card:"#ffffff", ink:"#1a1a1a", mut:"#8a8f8d", line:"#e4e6e4", accent:"#2f5d5a", soft:"#e8efee", g2:"#7fa39c", lut:["#e9ebe9","#b9c9c5","#7fa39c","#4a7a72","#2f5d5a"] };
+  const W = 750, PAD = 40, CELL = 18, GAP = 3;
+  const cv = document.createElement("canvas");
+  const ctx = cv.getContext("2d");
+  const d = today(), wd = dayIdxOf(d);
+  const plan = activePlan(), rec = dayRec(dkey(d), wd);
+  const MP = mealsPlan(), MM = MP.meals, T = dietTargets();
+  const exDone = rec.ex.filter(x=>x.done).length, exTotal = rec.ex.length;
+  const mealDone = rec.meals.filter(Boolean).length;
+  const font = (s,w)=>`${w||400} ${s}px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif`;
+  const rr2 = (x,y,w,h,r)=>{ rr(ctx,x,y,w,h,r); ctx.fillStyle=C.card; ctx.fill(); };
+  const bar = (bx,by,bw,ratio)=>{ rr(ctx,bx,by,bw,10,5); ctx.fillStyle=C.soft; ctx.fill(); if(ratio>0){ rr(ctx,bx,by,bw*ratio,10,5); ctx.fillStyle=C.accent; ctx.fill(); } };
+  // 热力图列（与设置的热力图范围一致，默认近 3 月）
+  const months = {"13":3,"26":6,"52":12}[String(DB.settings.hmWeeks)] || 3;
+  const nowM = d.getUTCMonth(), nowY = d.getUTCFullYear();
+  const monthCols = [];
+  for(let mi = months-1; mi >= 0; mi--){
+    let yy = nowY, mm = nowM - mi; while(mm < 0){ mm += 12; yy--; }
+    const first = new Date(Date.UTC(yy, mm, 1));
+    const dim = new Date(Date.UTC(yy, mm+1, 0)).getUTCDate();
+    const off = (first.getUTCDay()+6)%7;
+    monthCols.push({ label:(mm+1)+"月", weeks:Math.ceil((off+dim)/7), dim, off, y0:yy, m0:mm });
+  }
+  const hmColsW = monthCols.reduce((s,c)=>s + c.weeks*(CELL+GAP) + 14, 0);
+  const hmCardH = 96 + 7*(CELL+GAP) + 44;
+  const weekH = 7*72 + 96;
+  const dietH = 140 + MM.reduce((s,m)=>s + 50 + m.rows.length*44 + 16, 0);
+  const qrH = 300;
+  const H = 156 + 286 + hmCardH + 24 + weekH + 24 + dietH + 24 + qrH + 24 + 70;
+  cv.width = W; cv.height = H;
+  ctx.fillStyle = C.bg; ctx.fillRect(0,0,W,H);
+  let y = 56;
+  // —— LOGO 头部 ——
+  ctx.fillStyle = C.accent; ctx.font = font(44,800); ctx.fillText("H.Y.B.H", PAD, y+42);
+  ctx.fillStyle = C.mut; ctx.font = font(22);
+  ctx.fillText("训练 · 饮食 · 坚持", PAD+216, y+24);
+  ctx.font = font(24);
+  ctx.textAlign = "right";
+  ctx.fillText(`${d.getUTCMonth()+1}月${d.getUTCDate()}日 · 周${"一二三四五六日"[wd]}`, W-PAD, y+24);
+  ctx.fillText(`${plan.name} · ${MP.label}`, W-PAD, y+56);
+  ctx.textAlign = "left";
+  y += 120;
+  const drawTitle = (t, right)=>{ ctx.fillStyle=C.ink; ctx.font=font(30,700); ctx.fillText(t, PAD+34, y+54); if(right!==undefined){ ctx.fillStyle=C.accent; ctx.font=font(24,700); ctx.textAlign="right"; ctx.fillText(right, W-PAD-34, y+54); ctx.textAlign="left"; } };
+  // —— 卡1 热力图 ——
+  rr2(PAD, y, W-PAD*2, hmCardH, 24);
+  drawTitle("近 3 月坚持记录", "每日完成度");
+  const hmTop = y + 88, hmLeft = PAD + 34;
+  let hx = hmLeft;
+  const todayTs = d.getTime();
+  for(const mc of monthCols){
+    for(let wcol = 0; wcol < mc.weeks; wcol++){
+      for(let rrow = 0; rrow < 7; rrow++){
+        const dayIdx = wcol*7 + rrow - mc.off;
+        if(dayIdx < 0 || dayIdx >= mc.dim) continue;
+        const date = new Date(Date.UTC(mc.y0, mc.m0, dayIdx+1));
+        if(date.getTime() > todayTs) continue;
+        const r = DB.days[dkey(date)];
+        ctx.fillStyle = C.lut[levelOf(r)];
+        ctx.fillRect(hx + wcol*(CELL+GAP), hmTop + rrow*(CELL+GAP), CELL, CELL);
+      }
+    }
+    ctx.fillStyle = C.mut; ctx.font = font(20);
+    ctx.fillText(mc.label, hx + mc.weeks*(CELL+GAP)/2 - 14, hmTop + 7*(CELL+GAP) + 10);
+    hx += mc.weeks*(CELL+GAP) + 14;
+  }
+  y += hmCardH + 24;
+  // —— 卡2 周计划（原样） ——
+  rr2(PAD, y, W-PAD*2, weekH, 24);
+  drawTitle("本周计划", `${exDone}/${exTotal} 今日动作`);
+  let cy = y + 108;
+  plan.days.forEach((day,i)=>{
+    const isToday = i===wd, done = i<wd;
+    if(isToday){ rr(ctx, PAD+20, cy-38, W-PAD*2-40, 56, 14); ctx.fillStyle = C.soft; ctx.fill(); }
+    ctx.fillStyle = isToday?C.accent:(done?C.mut:C.ink);
+    ctx.font = font(isToday?28:26, isToday?800:400);
+    ctx.fillText(`周${"一二三四五六日"[i]}`, PAD+40, cy);
+    ctx.font = font(26, done?400:600);
+    ctx.fillText(day.title, PAD+140, cy);
+    const meta = METAS[day.title] || "";
+    if(meta){ ctx.fillStyle = C.mut; ctx.font = font(19); ctx.textAlign="right"; const mt = meta.length>18 ? meta.slice(0,17)+"…" : meta; ctx.fillText(mt, W-PAD-40, cy); ctx.textAlign="left"; }
+    cy += 72;
+  });
+  y += weekH + 24;
+  // —— 卡3 饮食方案（原样：每餐 + 菜单表） ——
+  rr2(PAD, y, W-PAD*2, dietH, 24);
+  drawTitle(`饮食方案 · ${MP.label}`, `${mealDone}/${MM.length} 餐`);
+  ctx.fillStyle = C.mut; ctx.font = font(22);
+  ctx.fillText(`≈${T.kcal-100}~${T.kcal+100} 千卡 · 蛋白 ${T.pro}g/天（按 ${DB.settings.weight}kg 折算）`, PAD+34, y+92);
+  cy = y + 136;
+  MM.forEach(m=>{
+    ctx.fillStyle = C.accent; ctx.font = font(26,700); ctx.fillText(m.n, PAD+40, cy);
+    ctx.fillStyle = C.mut; ctx.font = font(21); ctx.textAlign = "right";
+    ctx.fillText(`${m.p} 蛋白 · ${m.cost}`, W-PAD-40, cy); ctx.textAlign = "left";
+    cy += 50;
+    const rows = m.rows.map(r=>[String(r[0]), String(r[1]), String(r[2])]);
+    const tw = W-PAD*2-80;
+    rows.forEach((r,ri)=>{
+      if(ri%2===0){ ctx.fillStyle = C.bg; ctx.fillRect(PAD+40, cy-24, tw, 40); }
+      ctx.fillStyle = C.ink; ctx.font = font(22); ctx.fillText(r[0], PAD+52, cy+4);
+      ctx.fillStyle = C.mut; ctx.font = font(21); ctx.textAlign = "right";
+      ctx.fillText(r[1], PAD+40+tw*0.62, cy+4);
+      ctx.fillText(r[2], PAD+40+tw-12, cy+4); ctx.textAlign = "left";
+      cy += 44;
+    });
+    cy += 16;
+  });
+  y += dietH + 24;
+  // —— 卡4 二维码 + 链接 ——
+  rr2(PAD, y, W-PAD*2, qrH, 24);
+  const url = (/^https/.test(location.protocol) ? location.href.split("#")[0] : "");
+  ctx.fillStyle = C.ink; ctx.font = font(30,700); ctx.fillText("扫码开始使用", PAD+34, y+70);
+  if(url){
+    drawQR(ctx, W-PAD-236-34, y+50, 236, url, C.accent, C.card);
+    ctx.fillStyle = C.mut; ctx.font = font(22);
+    ctx.fillText("手机浏览器打开", PAD+34, y+130);
+    ctx.fillText("记录你的每一次训练与饮食", PAD+34, y+170);
+    ctx.fillStyle = C.accent; ctx.font = font(22,600);
+    ctx.fillText(url.replace(/^https?:\/\//,""), PAD+34, y+228);
+  } else {
+    ctx.fillStyle = C.accent; ctx.font = font(56,800);
+    ctx.fillText("H.Y.B.H", PAD+34, y+190);
+    ctx.fillStyle = C.mut; ctx.font = font(22);
+    ctx.fillText("记录你的每一次训练与饮食", PAD+34, y+240);
+  }
+  y += qrH;
+  ctx.fillStyle = C.mut; ctx.font = font(20);
+  ctx.textAlign = "center"; ctx.fillText("本工具仅作健康生活参考，不构成医疗建议", W/2, y+40); ctx.textAlign = "left";
+  return cv;
+}
+function shareCard(){
+  const cv = drawShareCard();
+  cv.toBlob(blob=>{
+    if(!blob){ alert("分享图生成失败"); return; }
+    const file = new File([blob], "hybh-打卡分享.png", { type:"image/png" });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      navigator.share({ files:[file], title:"H.Y.B.H 打卡分享", text:"我的训练与饮食打卡 ↓" }).catch(()=>{});
+    } else {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "hybh-打卡分享.png"; a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
+    }
+  }, "image/png");
+}
+
+// ---------- tab 切换 + 启动 ----------
+// 切换时惰性重渲染目标面板（保证打卡后各页计数新鲜；AI 页除外，避免清掉粘贴中的 JSON）
+const TAB_RENDER = { today:renderToday, diet:renderDiet, week:renderWeek, lib:renderLib, set:renderSet };
+document.querySelectorAll("#nav b").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll("#nav b").forEach(x=>x.classList.remove("on"));
+    document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); document.getElementById("p-"+b.dataset.p).classList.add("on");
+    if(TAB_RENDER[b.dataset.p]) TAB_RENDER[b.dataset.p]();
+  };
+});
+function renderAll(){ renderToday(); renderDiet(); renderWeek(); renderLib(); renderSet(); renderAi(); renderHeatmap(); startAnim(); }
+renderAll();
+</script>
+<script>
+// PWA：注册 Service Worker（离线缓存 + 后台更新）
+if ("serviceWorker" in navigator) {
+  addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
