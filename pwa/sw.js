@@ -1,9 +1,10 @@
 // H.Y.B.H Service Worker —— 单文件应用：cache-first 秒开 + 后台刷新
-const V = "hybh-v55";  // 发新版本时递增
+const V = "hybh-v56";  // 发新版本时递增
 const ASSETS = [
   "./",
   "./index.html",
   "./privacy.html",
+  "./privacy",
   "./manifest.webmanifest",
   "./SKILL.md",
   "./icons/icon-192.png",
@@ -33,10 +34,12 @@ self.addEventListener("fetch", e => {
   let url;
   try { url = new URL(e.request.url); } catch(_) { return; }
   if (url.origin !== self.location.origin) return;
-  // 页面导航只接管应用壳（/ 与 /index.html）。其余路径（如 /privacy.html，Cloudflare
-  // Pages 会 308 重定向到 /privacy）交给浏览器原生处理 —— SW 把重定向响应交给
-  // respondWith 会报 "redirected response ... not follow"，导致页面加载失败。
-  if (e.request.mode === "navigate" && !["/", "/index.html"].includes(url.pathname)) return;
+  // 页面导航只接管：应用壳（/、/index.html）与隐私页（/privacy，CF Pages 会把
+  // /privacy.html 308 重定向到这里，故以无扩展名形式预缓存与接管）。其余路径
+  // （包括会触发重定向的 /privacy.html）交给浏览器原生处理 —— SW 把重定向响应
+  // 交给 respondWith 会报 "redirected response ... not follow"，导致页面加载失败。
+  const SHELL = ["/", "/index.html", "/privacy"];
+  if (e.request.mode === "navigate" && !SHELL.includes(url.pathname)) return;
   e.respondWith(
     caches.open(V).then(async c => {
       const cached = await c.match(e.request);
