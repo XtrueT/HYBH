@@ -34,12 +34,18 @@ HYBH/
 │   ├── sw.js                 # Service Worker：cache-first 离线 + 后台静默更新
 │   ├── manifest.webmanifest  # PWA 清单（standalone / 竖屏 / 主题色）
 │   ├── privacy.html          # 隐私政策页
+│   ├── SKILL.md              # AI 定制契约（唯一来源；应用内 fetch 加载，AI 也可直接抓取 URL）
+│   ├── llms.txt              # 面向 LLM 的站点说明（中英双语，llmstxt.org 约定）
+│   ├── robots.txt            # 爬虫指引
+│   ├── sitemap.xml           # 站点地图
 │   ├── _headers              # Cloudflare Pages 安全响应头（CSP 等）
 │   └── icons/                # 应用图标（192 / 512 / maskable / apple-touch）
 ├── test/
 │   └── test.js               # Node 回归测试（放在 pwa/ 之外，不会随站点发布）
 └── .gitignore
 ```
+
+> `SKILL.md` 是 AI 定制契约的**唯一来源**：应用「AI」页通过 `fetch("SKILL.md")` 异步加载（离线由 Service Worker 预缓存），AI 也可直接抓取该 URL。无需维护第二份副本。
 
 ---
 
@@ -51,6 +57,69 @@ Service Worker 需要 `http(s)` 环境（`file://` 无法注册 SW），因此�
 cd pwa
 python3 -m http.server 8080
 # 浏览器访问 http://localhost:8080
+```
+
+---
+
+## 仿真测试
+
+`node test/test.js` 只覆盖纯逻辑。界面与浏览器行为相关的场景按下表手动/自动验证。
+
+### 1. 模拟「禁用 JavaScript」
+
+DevTools（`F12`）→ 按 `F1` 打开设置 → Preferences → Debugger → 勾选 **Disable JavaScript** → 刷新，应看到全屏提示「本应用需要启用 JavaScript 才能运行」。
+
+### 2. 模拟「存储不可用」
+
+在控制台执行（需先按上面的方式起 http 服务，`file://` 下不生效）：
+
+```js
+localStorage.setItem = () => { throw new Error("disabled"); };
+storageNotice();          // 应出现红色提示条
+```
+
+### 3. 模拟「无痕 / 隐私模式」
+
+检测依赖真实浏览器行为（OPFS 抛错 / IndexedDB 持久化耗时比），**DevTools 无法伪造**，请用真实隐私窗口：
+
+| 浏览器 | 快捷键 |
+|---|---|
+| Chrome / Edge | `Ctrl`/`Cmd` + `Shift` + `N` |
+| Firefox | `Ctrl`/`Cmd` + `Shift` + `P` |
+| Safari | `Cmd` + `Shift` + `N` |
+
+在隐私窗口打开 `http://localhost:8080`，应出现提示条。**必须走 `http(s)`**——`getDirectory()` 需要安全上下文，`file://` 测不出来。
+
+只验证 UI 时可在控制台强制触发：
+
+```js
+detectPrivateMode().then(console.log);                  // 查看真实检测结果
+document.getElementById("storwarn").hidden = false;     // 强制显示提示条看样式
+```
+
+### 4. 模拟「离线 / 弱网」
+
+DevTools → Network → 节流改为 **Offline** → 刷新。应用应仍能打开（Service Worker 缓存），且**不应**出现任何 CSP / SW 报错。
+
+### 5. 模拟「暗色模式 / 刘海屏」
+
+- 暗色：DevTools → Rendering → **Emulate CSS media feature `prefers-color-scheme`** → `dark`，检查输入框是否仍为深字浅底。
+- 刘海屏：DevTools 设备工具栏选 iPhone 15 Pro 等机型；`env(safe-area-inset-*)` 需真机或模拟器才准确。
+
+### 6. 自动化（Playwright）
+
+⚠️ **Playwright 的 `browser.newContext()` 本身就是无痕上下文**，会命中隐私模式检测；要模拟普通模式必须用持久化上下文：
+
+```js
+const normal    = await chromium.launchPersistentContext(userDataDir);  // 普通模式
+const incognito = await browser.newContext();                           // 无痕（会触发提示条）
+```
+
+### 7. 一键回归
+
+```bash
+node test/test.js
+# 期望：ALL PASS · 35 通过, 0 失败
 ```
 
 ---

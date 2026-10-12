@@ -4,8 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>隐私政策 · H.Y.B.H</title>
+<meta name="description" content="H.Y.B.H 隐私政策：你的训练与饮食数据全部保存在浏览器本地、不上传服务器；说明第三方服务（Cloudflare Pages 及其无 Cookie 访问统计）与你的导出 / 删除权利。">
 <meta name="theme-color" content="#2f5d5a">
-<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="H.Y.B.H">
+<meta name="format-detection" content="telephone=no">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>
   :root { --bg:#f2f3f2; --card:#ffffff; --ink:#1a1a1a; --mut:#8a8f8d; --line:#e4e6e4; --accent:#2f5d5a; --accent-soft:#e8efee; }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -14,7 +20,8 @@
     height:100dvh; display:flex; flex-direction:column; overflow:hidden; font-size:13px; line-height:1.75; }
   @media (min-width:720px){ body{ max-width:480px; margin:0 auto; box-shadow:0 0 24px rgba(0,0,0,.08); } }
 
-  header { flex-shrink:0; display:flex; justify-content:space-between; align-items:baseline; padding:18px 16px 8px; }
+  header { flex-shrink:0; display:flex; justify-content:space-between; align-items:baseline; padding:18px 16px 8px;
+    padding-top:calc(18px + env(safe-area-inset-top)); }
   header .logo { font-size:17px; font-weight:800; letter-spacing:3px; }
   header .r { font-size:11px; color:var(--mut); }
 
@@ -37,6 +44,9 @@
   footer .flinks { margin-top:2px; display:flex; justify-content:center; gap:2px; }
   footer a { color:var(--mut); text-decoration:none; padding:8px 10px; }
   footer a:hover { text-decoration:underline; }
+  /* 站外链接标识：在新窗口打开的外部链接自动加 ↗，与站内链接区分 */
+  a[target="_blank"]::after { content:"↗"; margin-left:2px; font-size:.85em; opacity:.75; }
+  a[target="_blank"]:hover::after { opacity:1; }
 </style>
 </head>
 <body>

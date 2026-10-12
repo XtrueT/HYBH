@@ -1,17 +1,23 @@
 // H.Y.B.H Service Worker —— 单文件应用：cache-first 秒开 + 后台刷新
-const V = "hybh-v43";  // 发新版本时递增
+const V = "hybh-v54";  // 发新版本时递增
 const ASSETS = [
   "./",
   "./index.html",
   "./privacy.html",
   "./manifest.webmanifest",
+  "./SKILL.md",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/maskable-512.png",
   "./icons/apple-touch-icon-180.png"
 ];
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(V).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // 逐个添加：单个资源失败（如被重定向 / 404）不影响整体安装，避免 addAll 的「全有或全无」
+  e.waitUntil(
+    caches.open(V)
+      .then(c => Promise.all(ASSETS.map(u => c.add(u).catch(() => {}))))
+      .then(() => self.skipWaiting())
+  );
 });
 self.addEventListener("activate", e => {
   e.waitUntil(
@@ -30,8 +36,10 @@ self.addEventListener("fetch", e => {
   e.respondWith(
     caches.open(V).then(async c => {
       const cached = await c.match(e.request);
-      const net = fetch(e.request).then(res => {
-        if (res && res.ok) c.put(e.request, res.clone());
+      // 显式 follow 重定向：否则 3xx 响应交给 respondWith 会报
+      // "a redirected response was used for a request whose redirect mode is not follow"
+      const net = fetch(e.request, { redirect: "follow" }).then(res => {
+        if (res && res.ok && !res.redirected) c.put(e.request, res.clone());   // 重定向后的响应不写缓存
         return res;
       }).catch(() => cached || Response.error());   // 兜底：绝不 reject，避免 respondWith 抛 TypeError
       return cached || net;   // 先回缓存保证离线秒开，后台静默更新，下次刷新生效

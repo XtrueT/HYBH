@@ -1,0 +1,55 @@
+# H.Y.B.H 健身追踪
+
+> 纯本地的健身打卡 PWA：内置增肌/减脂训练计划与饮食方案，支持把 SKILL.md 发给任意 AI 生成定制方案，数据全部存在浏览器本地。
+
+H.Y.B.H 是一个无需注册、无服务端、数据完全本地化的健身追踪单页应用。
+
+- 技术：单个静态 HTML 文件（HTML/CSS/JS）+ Service Worker。无构建工具、无第三方依赖、无框架。
+- 数据：全部存于浏览器 `localStorage`（键 `dumbbell_fit_v1`），不上传任何服务器；可导出 JSON 备份。
+- 热量算法：Mifflin-St Jeor 计算 BMR/TDEE，再按目标方向调整（增肌 +12% / 维持 ×1.0 / 减脂 −20%），得到每日热量目标。
+- 饮食方案：份量按 `目标热量 / (方案系数 × 60)` 等比缩放；蛋白按体重折算，减脂时自动抬到 ≥1.8g/kg。
+- 训练计划：内置动作库 + 每周 7 天编排；训练量不随体重缩放（取决于训练水平，这是有意的）。
+- 离线：Service Worker cache-first，可安装为 PWA。
+- 定制：把 SKILL.md 发给任意 AI，回传的 JSON 定制包在应用内粘贴导入（幂等，可反复迭代，也能连同个人数据一起写入）。
+
+## 主要页面
+
+- [应用首页](https://fitness.hybh.link/)：今日打卡、打卡热力图、饮食、周计划、动作库、设置、AI 定制
+- [隐私政策](https://fitness.hybh.link/privacy.html)：数据如何保存、第三方服务、用户权利
+
+## 定制契约
+
+- [SKILL.md](https://fitness.hybh.link/SKILL.md)：AI 定制包的完整数据契约与工作流（生成训练计划 + 饮食方案 JSON）
+
+## Optional
+
+- [GitHub 仓库](https://github.com/XtrueT/HYBH)：源码与问题反馈
+
+---
+
+# H.Y.B.H Fitness Tracker
+
+> A fully local, offline-first fitness tracking PWA: built-in workout and diet plans, AI customization via SKILL.md, and all data stored in your browser.
+
+H.Y.B.H is a single-page fitness tracker with no sign-up, no backend, and no data upload.
+
+- Stack: one static HTML file (HTML/CSS/JS) plus a Service Worker. No build step, no dependencies, no framework.
+- Data: stored entirely in the browser's `localStorage` (key `dumbbell_fit_v1`). Nothing is uploaded; JSON export is available.
+- Calorie math: Mifflin-St Jeor BMR/TDEE, adjusted by goal direction (bulk +12% / maintain ×1.0 / cut −20%).
+- Diet plans: portions scale by `target kcal / (plan coefficient × 60)`; protein by body weight, floored at 1.8 g/kg when cutting.
+- Workout plans: built-in exercise library with a 7-day weekly layout. Training volume does not scale with body weight (it depends on training level — by design).
+- Offline: Service Worker cache-first; installable as a PWA.
+- Customization: send SKILL.md to any LLM and paste the returned JSON package into the app (idempotent, re-importable, can also write your body metrics).
+
+## Pages
+
+- [App](https://fitness.hybh.link/): daily check-in, heatmap, diet, weekly plan, exercise library, settings, AI customization
+- [Privacy Policy](https://fitness.hybh.link/privacy.html)
+
+## Contract
+
+- [SKILL.md](https://fitness.hybh.link/SKILL.md): full data contract and workflow for AI-generated packages
+
+## Optional
+
+- [GitHub repository](https://github.com/XtrueT/HYBH): source code and issue tracker

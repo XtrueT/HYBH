@@ -21,7 +21,7 @@ let confirms=[]; global.confirm=q=>{ confirms.push(q); return true; };
 // ---------- 载入应用脚本 ----------
 const html = fs.readFileSync(__dirname + "/../pwa/index.html", "utf8");
 const scripts = html.match(/<script>([\s\S]*?)<\/script>/g).map(s=>s.replace(/<\/?script>/g,""));
-const app = scripts.find(s=>s.includes("schemaVersion")).replace(/renderAll\(\);\s*$/, "");
+const app = scripts.find(s=>s.includes("schemaVersion")).replace(/\nstorageNotice\(\);[\s\S]*$/, "");
 eval(app + "\nglobalThis.__T = { DB, KEY, renderDiet, renderToday, toggleMeal, toggleEx, applyCustomPackage, sanitizeBackup, dayRec, dayIdxOf, dkey, today, qrMatrix };");
 const T = globalThis.__T;
 const memoEl = id => memo[id];
@@ -38,7 +38,7 @@ eq("内置两种饮食", !!(T.DB.meals.muscle && T.DB.meals.lean));
 eq("动作库 35 个种子", Object.keys(T.DB.exercises).length === 35);
 eq("旧库 v5 自动升 v6", (()=>{
   localStorage.setItem(T.KEY, JSON.stringify({ v:1, schemaVersion:5, days:{}, settings:{} }));
-  eval(app.replace(/renderAll\(\);\s*$/,"") + "; globalThis.__DB2 = DB;");
+  eval(app.replace(/\nstorageNotice\(\);[\s\S]*$/,"") + "; globalThis.__DB2 = DB;");
   const DB2 = globalThis.__DB2;
   return DB2.schemaVersion === 6 && !!DB2.meals.muscle;
 })());
