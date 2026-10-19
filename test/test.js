@@ -4,9 +4,13 @@
 const fs = require("fs");
 
 // ---------- 桩环境 ----------
-const el = () => ({ style:{}, value:"", dataset:{}, open:false, scrollTop:0, scrollLeft:0, scrollWidth:0,
+const el = () => ({ style:{}, value:"", dataset:{}, open:false, scrollTop:0, scrollLeft:0, scrollWidth:0, clientWidth:300, offsetLeft:0,
+  scrollTo(){},
   classList:{ add(){}, remove(){}, toggle(c,v){ this._t=[c,v]; } },
-  closest(){ return null; }, appendChild(){}, addEventListener(){}, insertAdjacentHTML(){}, onclick:null,
+  closest(){ return null; }, matches(){ return false; }, querySelector(){ return null; }, appendChild(){}, addEventListener(){}, insertAdjacentHTML(){}, onclick:null,
+  // <dialog> 桩：showModal 即视为用户点了确认按钮（导入流程在 onApply 回调里生效）
+  showModal(){ if(typeof this.onapply === "function"){ const fn=this.onapply; this.onapply=null; fn(); } },
+  close(){},
   set innerHTML(v){ this._h=v; }, get innerHTML(){ return this._h||""; },
   set textContent(v){ this._t=v; }, get textContent(){ return this._t||""; } });
 const memo = {};

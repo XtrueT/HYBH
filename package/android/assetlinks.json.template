@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "link.hybh.fitness",
+    "sha256_cert_fingerprints": [
+      "把 keytool -list -v -keystore hybh.keystore 输出的 SHA-256 指纹粘贴到这里"
+    ]
+  }
+}]

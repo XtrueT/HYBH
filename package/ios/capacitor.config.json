@@ -1,0 +1,12 @@
+{
+  "appId": "link.hybh.fitness",
+  "appName": "H.Y.B.H",
+  "webDir": "www",
+  "server": {
+    "url": "https://fitness.hybh.link",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "never"
+  }
+}

@@ -16,5 +16,24 @@ node_modules/
 *.tmp
 ._*
 
+# ---- 原生包构建产物与签名密钥（严禁提交到 git） ----
+package/android/hybh.keystore
+package/android/*.jks
+package/**/*.apk
+package/**/*.aab
+package/**/*.ipa
+package/**/*.hap
+package/ios/node_modules/
+package/ios/ios/
+package/ios/App/
+package/harmony/build/
+package/harmony/.hvigor/
+package/harmony/oh_modules/
+package/harmony-native/build/
+package/harmony-native/.hvigor/
+package/harmony-native/oh_modules/
+package/harmony-native/entry/build/
+
 # ---- AI 工作区本地数据（含本地记忆，按需保留） ----
 .workbuddy-ai/
+.playwright-cli/

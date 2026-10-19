@@ -1,0 +1,12 @@
+{
+  "name": "hybh-ios-shell",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "@capacitor/core": "latest",
+    "@capacitor/preferences": "latest"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "latest"
+  }
+}

@@ -53,34 +53,47 @@
   header .logo { font-size:17px; font-weight:800; letter-spacing:3px; }
   header .r { font-size:11px; color:var(--mut); }
 
-  .hmwrap { padding:10px 16px 4px; }
+  .hmwrap { padding:10px 16px 4px; position:relative; }
+  #hmToggle { position:absolute; top:8px; right:14px; z-index:2; font-size:10.5px; font-style:normal;
+    color:var(--accent); background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:1px 8px; cursor:pointer; }
   .hm { display:flex; gap:9px; width:max-content; max-width:100%; margin:0 auto; overflow-x:auto; padding-top: 4px; }
   .mlab{font-size: 10px;}
   .mcol { display:flex; flex-direction:column; gap:4px; }
   .mgrid { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,13px); grid-auto-columns:13px; gap:3px; }
-  .hm button { width:13px; height:13px; padding:0; border:none; cursor:pointer; background:var(--g0); }
+  .hm button { width:13px; height:13px; padding:0; border:none; cursor:pointer; background:var(--g0); position:relative; }
+  /* 触控热区外扩：视觉 13px 不变，命中区扩到 19px（恰好填满 3px 间距，不与相邻格重叠） */
+  .hm button::after { content:""; position:absolute; inset:-3px; }
   .hm button.l1{background:var(--g1)} .hm button.l2{background:var(--g2)}
   .hm button.l3{background:var(--g3)} .hm button.l4{background:var(--g4)}
   .hm button.future { background:transparent; border:1px solid var(--line); cursor:default; }
   .hm button.today { outline:1.5px solid var(--accent); outline-offset:1.5px; }
+  .hm-legend { display:flex; align-items:center; justify-content:center; gap:5px; font-size:10px; color:var(--mut); margin:6px auto 0; max-width:266px; }
+  .hm-legend i { width:11px; height:11px; border-radius:2px; background:var(--g0); }
+  .hm-legend i.l1{background:var(--g1)} .hm-legend i.l2{background:var(--g2)}
+  .hm-legend i.l3{background:var(--g3)} .hm-legend i.l4{background:var(--g4)}
   .cap { display:flex; justify-content:space-between; font-size:10px; color:var(--mut); margin-top:6px; max-width:266px; margin-left:auto; margin-right:auto; }
 
   nav { display:flex; margin:12px 16px 0; border-bottom:1px solid var(--line); }
   nav button { flex:1; text-align:center; font-size:12.5px; font-weight:500; color:var(--mut); padding:9px 0; cursor:pointer;
     background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
   nav button.on { color:var(--ink); font-weight:700; border-bottom-color:var(--accent); }
-  main { flex:1; min-height:0; display:flex; flex-direction:column; }
+  main { flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden;
+    scroll-snap-type:x mandatory; scrollbar-width:none; }
+  main::-webkit-scrollbar { display:none; }
   /* 键盘可达性：只在键盘导航时显示焦点圈，鼠标点击不显示 */
   :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  /* 弹窗按钮：程序化 focus 不触发 :focus-visible，故弹窗内用普通 :focus 保证焦点可见 */
+  dialog .dbtns .btn:focus { outline:2px solid var(--accent); outline-offset:2px; }
   /* 尊重系统「减少动效」偏好 */
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
   }
 
-  .panel { display:none; padding:12px 16px 20px; }
-  .panel.on { display:block; flex:1; min-height:0; overflow-y:auto; }
+  .panel { flex:0 0 100%; min-width:100%; height:100%; min-height:0; padding:12px 16px 20px; scroll-snap-align:start; }
+  #p-week, #p-today, #p-lib, #p-diet { display:flex; flex-direction:column; overflow:hidden; }
+  #p-set, #p-ai { overflow-y:auto; }
   /* 面板结构统一：头部固定 + 列表自身滚动 */
-  #p-week.on, #p-today.on, #p-lib.on, #p-diet.on { display:flex; flex-direction:column; overflow:hidden; }
   .p-head { flex-shrink:0; }
   .p-list { flex:1; min-height:0; overflow-y:auto; }
   #p-today .today-head { flex-shrink:0; }
@@ -99,7 +112,8 @@
     background:var(--card); padding:10px 0 4px; border-top:1px solid var(--line); margin:14px -14px -14px; padding:10px 14px 14px; }
   dialog .dbtns .btn { flex:1; }
 
-  /* 面板内 CSS 轮播 */
+  /* 面板内 CSS 轮播。不加 overscroll-behavior-x:contain —— 必须保留滚动链，
+     内部轮播滑到首/末张继续滑时，手势才能传给外层 main 切换到上/下一个 tab */
   .strip { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; margin:0 -16px; padding:0 16px 8px; }
   .strip::-webkit-scrollbar { display:none; }
   .slide { flex:0 0 100%; scroll-snap-align:center; padding-right:14px; }
@@ -181,6 +195,27 @@
   /* 站外链接标识：在新窗口打开的外部链接自动加 ↗，与站内链接区分 */
   a[target="_blank"]::after { content:"↗"; margin-left:2px; font-size:.85em; opacity:.75; }
   a[target="_blank"]:hover::after { opacity:1; }
+  /* 滚动条：thin 细样式，滑块主题色、轨道透明（Chrome 121+ / Firefox 支持标准属性） */
+  * { scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+  /* 热力图两态：收起摘要行 + 统计看板 + 里程碑 */
+  .hm-sum { display:flex; align-items:center; gap:10px; cursor:pointer; font-size:11.5px; padding:2px 0; }
+  .hm-sum b { color:var(--accent); font-weight:700; }
+  .hm-sum span { color:var(--mut); }
+  .hm-sum .more { margin-left:auto; color:var(--accent); }
+  .cap .fold { cursor:pointer; color:var(--accent); }
+  dialog .pv { display:flex; justify-content:space-between; gap:10px; font-size:12px; padding:5px 0; border-bottom:1px solid var(--line); }
+  dialog .pv span { color:var(--mut); }
+  dialog .pv b { font-weight:600; color:var(--ink); text-align:right; }
+  dialog .pvw { font-size:10.5px; color:var(--mut); margin-top:8px; }
+  .hm-stats { margin-top:8px; border-top:1px solid var(--line); padding-top:8px; }
+  .hm-stats .st-t { font-size:10.5px; color:var(--mut); margin:6px 0 3px; }
+  .hm-stats .st-row { display:flex; align-items:center; gap:8px; font-size:11px; padding:2px 0; }
+  .hm-stats .st-l { width:34px; color:var(--mut); flex-shrink:0; }
+  .hm-stats .st-n { flex:1; color:var(--ink); }
+  .hm-stats .st-bar { flex:1; height:6px; background:var(--line); border-radius:3px; overflow:hidden; }
+  .hm-stats .st-bar i { display:block; height:100%; background:var(--accent); }
+  .hm-stats .st-v { width:56px; text-align:right; color:var(--mut); flex-shrink:0; }
+  .mile { font-size:12px; color:var(--accent); font-weight:700; margin-top:4px; }
 </style>
 </head>
 <body>
@@ -199,15 +234,18 @@
 </header>
 
 <div class="hmwrap" id="hmwrap">
+  <span id="hmToggle" role="button" onclick="setHmOpen(DB.settings.hmOpen !== true)"></span>
   <div class="hm" id="hm"></div>
-  <div class="cap"><span id="hmL"></span><span>点击方块查看当天执行情况</span></div>
+  <div class="hm-legend" id="hmLegend"><span>少</span><i></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>多</span></div>
+  <div class="cap" id="hmCap"><span id="hmL"></span><span>点击方块查看当天执行情况</span></div>
+  <div id="hmStats" class="hm-stats"></div>
 </div>
 
 <nav id="nav" aria-label="主导航">
   <button type="button" class="on" data-p="today" aria-current="page">今日</button><button type="button" data-p="diet">饮食</button><button type="button" data-p="week">周计划</button><button type="button" data-p="lib">库</button><button type="button" data-p="set">设置</button><button type="button" data-p="ai">AI</button>
 </nav>
 
-<main>
+<main id="main">
   <div class="panel on" id="p-today"></div>
   <div class="panel" id="p-diet"></div>
   <div class="panel" id="p-week">
@@ -266,15 +304,18 @@ function exFig(type){
   return `<svg width="52" height="52" viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
     <g class="f0">${pose(type,0)}</g><g class="f1" style="display:none">${pose(type,1)}</g><g class="f2" style="display:none">${pose(type,2)}</g></svg>`;
 }
-let animTimer=null, animPh=0;
+let animTimer=null, animPh=0, animNodes=[], scrollHold=false;   // scrollHold：任一轮播滚动中置 true，动画暂停让路给触摸滚动
 function startAnim(){
   clearInterval(animTimer);
+  // 缓存当前页的 SVG 列表（切页/重渲染后由 applyTab / 各 render 重新调用本函数刷新缓存），
+  // 避免每个 tick 都 querySelectorAll 全页扫描
+  animNodes = [...document.querySelectorAll("#p-"+curTab+" svg")];
   // 尊重「减少动效」偏好：保持静态首帧，不启动定时器（同时省电）
   if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   animTimer = setInterval(()=>{
-    if(document.hidden) return;   // 页面不可见时暂停，省电
+    if(document.hidden || scrollHold) return;   // 页面不可见或正在滑动时暂停，省电且不与滚动抢主线程
     animPh = (animPh+1)%3;
-    document.querySelectorAll("svg").forEach(s=>{
+    animNodes.forEach(s=>{
       [0,1,2].forEach(k=>{ const g=s.querySelector(".f"+k); if(g) g.style.display = k===animPh?"":"none"; });
     });
   }, 700);
@@ -367,6 +408,24 @@ const METAS = {
 
 // ---------- 存储层（schemaVersion 3） ----------
 const KEY = "dumbbell_fit_v1";
+// 应用版本（semver）：与各平台包（Android versionName / iOS CFBundleShortVersionString /
+// 鸿蒙 versionName）保持一致。SW 缓存版本 V 是内部离线缓存代号，与应用版本无关。
+const APP_VERSION = "1.0.0";
+// 下载直链：GitHub Release 附加固定文件名的产物，配合 releases/latest/download 稳定直链
+// 注：Android APK 支持侧载，可直链；iOS 无侧载（需上架/TestFlight）；鸿蒙 NEXT 禁止侧载
+// （只认华为签名），上架华为应用市场后把 harmony 换成 AppGallery 链接
+const DL = {
+  android: "https://github.com/XtrueT/HYBH/releases/latest/download/HYBH-android.apk",
+  harmony: "https://github.com/XtrueT/HYBH/releases",
+  ios:     "https://github.com/XtrueT/HYBH/releases"
+};
+function platformOf(){
+  const ua = navigator.userAgent || "";
+  if(/HarmonyOS|OpenHarmony/i.test(ua)) return "harmony";
+  if(/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if(/Android/i.test(ua)) return "android";
+  return "";
+}
 // 读取本地库：数据损坏时兜底为空库，避免整站白屏且无法自救
 function loadDB(){
   try{
@@ -436,14 +495,38 @@ let DB = loadDB() || { v:1, schemaVersion:6, days:{},
   if(!DB.settings.goal) DB.settings.goal = "muscle";
   if(typeof DB.settings.showHeatmap !== "boolean") DB.settings.showHeatmap = true;   // 默认显示首页热力图
   if(typeof DB.settings.seenIntro !== "boolean") DB.settings.seenIntro = false;      // 首次进入的一次性提示
+  if(typeof DB.settings.hmOpen !== "boolean") DB.settings.hmOpen = false;            // 热力图展开态（默认收起为一行摘要）
+  if(typeof DB.settings.showStats !== "boolean") DB.settings.showStats = false;      // 统计看板（默认隐藏）
   if(typeof DB.settings.age !== "number") DB.settings.age = 25;                      // 年龄（用于 BMR 计算）
   if(!["male","female","none"].includes(DB.settings.sex)) DB.settings.sex = "none";  // 性别；none = 不透露
   if(typeof DB.settings.targetWeight !== "number") DB.settings.targetWeight = DB.settings.weight || 60;   // 目标体重
 })();
 function save(){
   // 约定：打卡类交互=原地 DOM 更新（不重绘防滚动），配置类=整面板重绘；DB 字符串进模板必过 esc()
-  try{ localStorage.setItem(KEY, JSON.stringify(DB)); }
-  catch(e){ alert("本地存储写入失败（隐私模式或空间不足）\n本次数据未被持久化，请尽快「导出 JSON」备份。"); }
+  const json = JSON.stringify(DB);
+  try{ localStorage.setItem(KEY, json); }
+  catch(e){ infoDlg("本地存储写入失败（隐私模式或空间不足）\n本次数据未被持久化，请尽快「导出 JSON」备份。"); }
+  mirrorNative(json);   // 套壳环境：镜像到原生存储（躲开 iOS WKWebView 的 7 天 ITP 清除）
+}
+// 原生镜像：仅套壳环境存在 window.Capacitor；纯网页为空操作
+function nativePrefs(){
+  return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) || null;
+}
+function mirrorNative(json){
+  const cap = nativePrefs();
+  if(!cap) return;
+  try{ cap.set({ key: KEY, value: json }).catch(()=>{}); }catch(_){}
+}
+// 套壳启动：原生镜像与 localStorage 不一致（典型：ITP 清掉了 WebView 存储）→ 恢复并重载一次
+if(nativePrefs()){
+  try{
+    nativePrefs().get({ key: KEY }).then(r=>{
+      if(r && r.value && r.value !== localStorage.getItem(KEY)){
+        localStorage.setItem(KEY, r.value);
+        location.reload();
+      }
+    }).catch(()=>{});
+  }catch(_){}
 }
 function today(){ const d=new Date(); return new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); }
 function dkey(d){ return d.toISOString().slice(0,10); }
@@ -492,17 +575,34 @@ function exRow(e, done, interactive, clickJs){
 }
 
 // ---------- 组件：Dialog 弹窗 ----------
-function openDlg(title, html, onApply, onCancel){
+// 弹层默认焦点：表单聚焦第一个输入控件；常规聚焦主操作（acc）；破坏性确认（danger）聚焦「取消」防误触
+function focusDlg(dlg, target){
+  try{
+    const el = typeof target === "string" ? dlg.querySelector(target) : target;
+    if(el && el.focus) el.focus({ preventScroll:true });
+  }catch(_){}
+}
+function openDlg(title, html, onApply, onCancel, applyLabel){
   const dlg = document.getElementById("dlg");
   dlg.onapply = onApply || null;
   dlg.oncancel = onCancel || null;
-  dlg.innerHTML = dlgInner(title, html);
+  dlg.innerHTML = dlgInner(title, html, applyLabel);
   dlg.showModal();
+  focusDlg(dlg, dlg.querySelector("input, select, textarea") || ".acc");   // 表单聚焦第一个输入控件，无则聚焦主操作
 }
-function dlgInner(title, html){
+function dlgInner(title, html, applyLabel){
   return `<h3>${title}</h3>${html}
-    <div class="dbtns"><button class="btn acc" onclick="closeDlg(true)">保存</button>
-    <button class="btn" onclick="closeDlg(false)">取消</button></div>`;
+    <div class="dbtns"><button class="btn" onclick="closeDlg(false)">取消</button>
+    <button class="btn acc" onclick="closeDlg(true)">${esc(applyLabel||"保存")}</button></div>`;
+}
+// 单按钮信息弹层（无取消）：替代 alert，纯知悉类提示
+function okDlg(title, html, okLabel){
+  const dlg = document.getElementById("dlg");
+  dlg.onapply = null; dlg.oncancel = null;
+  dlg.innerHTML = `<h3>${esc(title)}</h3>${html}
+    <div class="dbtns"><button class="btn acc" onclick="closeDlg(true)">${esc(okLabel||"知道了")}</button></div>`;
+  dlg.showModal();
+  focusDlg(dlg, ".acc");
 }
 function refreshDlg(title, html){
   const dlg = document.getElementById("dlg");
@@ -515,14 +615,33 @@ function closeDlg(apply){
   dlg.close();                       // 先关闭再回调，允许回调里再次 showModal（如新建计划→编辑计划）
   if(fn) fn();
 }
+// 信息提示弹层：替代原生 alert（纯文本，单按钮「知道了」）
+function infoDlg(msg){
+  okDlg("提示", `<div class="meta" style="line-height:1.7">${esc(String(msg??'')).replace(/\n/g,"<br>")}</div>`, "知道了");
+}
+// 确认弹层：替代原生 confirm（取消/确认双按钮，确认后执行 onOk；danger=true 时确认键红色）
+function askDlg(title, msg, onOk, okLabel, danger){
+  const dlg = document.getElementById("dlg");
+  const okCls = danger ? 'btn" style="border-color:#a33;color:#a33' : 'btn acc';
+  dlg.onapply = onOk || null; dlg.oncancel = null;
+  dlg.innerHTML = `<h3>${esc(title)}</h3><div class="meta" style="line-height:1.7">${esc(String(msg??'')).replace(/\n/g,"<br>")}</div>
+    <div class="dbtns"><button class="btn" onclick="closeDlg(false)">取消</button>
+    <button class="${okCls}" onclick="closeDlg(true)">${esc(okLabel||"确认")}</button></div>`;
+  dlg.showModal();
+  focusDlg(dlg, danger ? ".dbtns .btn" : ".acc");
+}
 
 // ---------- 组件：轮播同步（索引按单卡宽度取整，末页可达） ----------
 function bindCarousel(strip, dots){
-  strip.onscroll = (()=>{ let t; return ()=>{ clearTimeout(t); t=setTimeout(()=>{
-    const sw = strip.children[0].offsetWidth || 1;
-    const idx = Math.max(0, Math.min(dots.children.length-1, Math.round(strip.scrollLeft / sw)));
-    [...dots.children].forEach((d,k)=>d.classList.toggle("on", k===idx));
-  },120); }; })();
+  strip.onscroll = (()=>{ let t; return ()=>{
+    scrollHold = true;   // 滚动中暂停 SVG 动画，避免与触摸滚动抢主线程
+    clearTimeout(t); t=setTimeout(()=>{
+      scrollHold = false;
+      const sw = strip.children[0].offsetWidth || 1;
+      const idx = Math.max(0, Math.min(dots.children.length-1, Math.round(strip.scrollLeft / sw)));
+      [...dots.children].forEach((d,k)=>d.classList.toggle("on", k===idx));
+    },120);
+  }; })();
 }
 
 // ---------- 今日 ----------
@@ -535,12 +654,15 @@ function renderToday(){
   const MP = mealsPlan(), MM = MP.meals, SC = dietScaler();
   const md = rec.meals.filter(Boolean).length;
   const T = dietTargets();
+  const st = streak();
+  const mile = [7,14,21,30,50,100,150,200,300,365].includes(st) ? `<div class="mile">🔥 连续打卡 ${st} 天</div>` : "";
   document.getElementById("p-today").innerHTML = `
     <div class="today-head">
       <div class="card" style="margin-bottom:12px">
         <button class="btn sm" style="float:right;margin-left:8px" onclick="shareCard()">分享</button>
         <h2>${d.getUTCMonth()+1}月${d.getUTCDate()}日 ${esc(planName)} · ${esc(day.title)}<small id="ex-cnt">${done}/${total} 动作</small></h2>
         <div class="meta">${METAS[day.title] || "自定义训练日"}</div>
+        ${mile}
         <div class="bar"><b id="ex-bar" style="width:${total?done/total*100:0}%"></b></div>
       </div>
     </div>
@@ -811,8 +933,10 @@ function saveEx(id){
 function delEx(id){
   if(!DB.exercises[id] || !DB.exercises[id].custom) return;
   const used = Object.values(DB.plans).flatMap(p=>p.days).filter(d=>d.exIds.includes(id));
-  if(used.length){ alert("该动作被 "+used.length+" 个训练日引用，请先在设置的计划编辑器中移除"); return; }
-  if(confirm("删除自定义动作「"+DB.exercises[id].name+"」？")){ delete DB.exercises[id]; save(); renderLib(); }
+  if(used.length){ infoDlg("该动作被 "+used.length+" 个训练日引用，请先在设置的计划编辑器中移除"); return; }
+  askDlg("删除自定义动作", "将删除「" + esc(DB.exercises[id].name) + "」，此操作不可恢复。", () => {
+    delete DB.exercises[id]; save(); renderLib();
+  }, "删除", true);
 }
 
 // ---------- 设置（含计划编辑器） ----------
@@ -897,11 +1021,26 @@ function renderSet(){
         ${[[13,"近3个月"],[26,"近6个月"],[52,"近1年"]].map(([w,l])=>
           `<b class="btn" style="flex:1;text-align:center;${s.hmWeeks===w?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setRange(${w})">${l}</b>`).join("")}
       </div>
+      <p class="meta" style="margin:10px 0 4px">统计看板</p>
+      <div class="frow" style="margin-top:0">
+        ${[[true,"显示"],[false,"隐藏"]].map(([v,l])=>
+          `<b class="btn" style="flex:1;text-align:center;${s.showStats===v?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setStats(${v})">${l}</b>`).join("")}
+      </div>
     </div>
     <div class="card" style="margin-bottom:12px">
       <h2>添加到桌面</h2>
       <p class="meta" style="margin:6px 0 8px">${installHint()}</p>
       <button class="btn" onclick="installApp()">添加到桌面</button>
+    </div>
+    <!-- 三端安装包尚未发布，暂时隐藏；上线后去掉下方的 hidden 即可恢复 -->
+    <div class="card" style="margin-bottom:12px" hidden>
+      <h2>下载安装<small>v${APP_VERSION}</small></h2>
+      <div class="frow" style="margin-top:8px">
+        ${[["android","Android"],["ios","iOS"],["harmony","鸿蒙"]].map(([k,l])=>{
+          const cur = platformOf() === k;
+          return `<a class="btn" style="flex:1;text-align:center;text-decoration:none;${cur?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" target="_blank" rel="noopener noreferrer" href="${DL[k]}">${l}</a>`;
+        }).join("")}
+      </div>
     </div>
     <div class="card" style="margin-bottom:12px">
       <h2 style="margin-bottom:6px">数据备份</h2>
@@ -940,13 +1079,13 @@ function saveSet(){
   const wIn = +document.getElementById("setW").value || 60;
   const wLo = Math.round(BMI_ABS_MIN * hM2), wHi = Math.round(BMI_ABS_MAX * hM2);
   if(wIn < wLo || wIn > wHi){
-    alert(`体重需在 ${wLo}–${wHi} kg 之间。\n（超出此范围请检查是否输入有误）\n本次修改未保存。`);
+    infoDlg(`体重需在 ${wLo}–${wHi} kg 之间。\n（超出此范围请检查是否输入有误）\n本次修改未保存。`);
     renderSet(); return;
   }
   const tIn = +document.getElementById("setTW").value || wIn;
   const tLo = Math.round(BMI_HEALTHY_MIN * hM2 * 10) / 10, tHi = Math.round(BMI_HEALTHY_MAX * hM2 * 10) / 10;
   if(tIn < tLo || tIn > tHi){
-    alert(`目标体重需在 ${tLo}–${tHi} kg 之间（BMI ${BMI_HEALTHY_MIN}–${BMI_HEALTHY_MAX}，健康区间）。\n本次修改未保存。`);
+    infoDlg(`目标体重需在 ${tLo}–${tHi} kg 之间（BMI ${BMI_HEALTHY_MIN}–${BMI_HEALTHY_MAX}，健康区间）。\n本次修改未保存。`);
     renderSet(); return;
   }
   // 校验通过才落库
@@ -957,7 +1096,7 @@ function saveSet(){
   DB.settings.sex = ["male","female","none"].includes(sx) ? sx : "none";
   DB.settings.targetWeight = tIn;
   save();
-  renderSet(); renderDiet();
+  renderSet(); renderDiet(); renderToday();   // 今日页也显示热量/蛋白目标，体重变化后需同步刷新
 }
 function setRange(w){ DB.settings.hmWeeks = w; save(); renderHeatmap(); renderSet(); }
 // 首页热力图显示/隐藏（默认显示）
@@ -969,16 +1108,16 @@ function applyHeatmapVisibility(){
   if(on) renderHeatmap();
 }
 function setHeatmap(on){ DB.settings.showHeatmap = !!on; save(); applyHeatmapVisibility(); renderSet(); }
-function setGoal(g){ DB.settings.goal = g; save(); renderDiet(); renderSet(); }
+function setGoal(g){ DB.settings.goal = g; save(); renderDiet(); renderSet(); renderToday(); }   // 今日页餐单/热量目标取自当前方案，需同步刷新
 function delMeal(gid){
+  if(gid === DB.settings.goal){ infoDlg("不能删除当前启用的饮食方案"); return; }   // 与 delPlan 一致：启用中不可删
   const keys = Object.keys(DB.meals);
-  if(keys.length <= 1){ alert("至少保留一个饮食方案"); return; }
+  if(keys.length <= 1){ infoDlg("至少保留一个饮食方案"); return; }
   const p = DB.meals[gid];
-  const active = DB.settings.goal === gid;
-  if(!confirm(`删除饮食方案「${p.label}」？${active?"\n该方案正在使用，删除后将自动切换到其他方案。":""}\n此操作不可恢复（AI 定制包可重新导入）。`)) return;
-  delete DB.meals[gid];
-  if(active) DB.settings.goal = Object.keys(DB.meals)[0];
-  save(); renderSet(); renderDiet();
+  askDlg("删除饮食方案", `将删除「${esc(p.label)}」。\n此操作不可恢复（AI 定制包可重新导入）。`, () => {
+    delete DB.meals[gid];
+    save(); renderSet(); renderDiet();
+  }, "删除", true);
 }
 
 // --- 计划编辑器（Dialog 弹窗，改动实时生效，保存后统一刷新） ---
@@ -998,21 +1137,27 @@ function refreshPlanDlg(){
   if(planDlgPid) refreshDlg("编辑计划", planEditor(planDlgPid, DB.plans[planDlgPid]));
 }
 function usePlan(pid){
+  const doUse = () => {
+    DB.activePlanId = pid;
+    save(); planDlgPid = null;
+    renderSet(); renderToday(); renderWeek(); updateHeatmapToday(); startAnim();
+  };
   if(pid === DB.activePlanId) return;
-  // 今天已有打卡时先确认：切换会按新计划重建今天的动作列表（同名动作保留打卡状态，其余会消失）
+  // 今天已有打卡时先确认（应用内 dialog）：切换会按新计划重建今天的动作列表（同名动作保留打卡状态，其余会消失）
   const rec = DB.days[dkey(today())];
   const doneToday = (rec && Array.isArray(rec.ex)) ? rec.ex.filter(x=>x.done).length : 0;
-  if(doneToday && !confirm(`今天已打卡 ${doneToday} 个动作。\n切换计划后，今天的动作列表会按新计划重建：\n· 两个计划都有的动作，打卡状态保留\n· 只在新计划里的动作，从零开始\n· 只在旧计划里的动作，会从今天消失\n\n确认切换？`)) return;
-  DB.activePlanId = pid;
-  save(); planDlgPid = null;
-  renderSet(); renderToday(); renderWeek(); updateHeatmapToday(); startAnim();
+  if(!doneToday){ doUse(); return; }
+  openDlg("切换计划", `
+    <div class="pv"><span>今天已打卡</span><b>${doneToday} 个动作</b></div>
+    <div class="pvw">切换后，今天的动作列表会按新计划重建：<br>· 两个计划都有的动作，打卡状态保留<br>· 只在新计划里的动作，从零开始<br>· 只在旧计划里的动作，会从今天消失</div>`,
+    doUse, null, "确认切换");
 }
 function delPlan(pid){
-  if(pid===DB.activePlanId){ alert("不能删除当前启用的计划"); return; }
+  if(pid===DB.activePlanId){ infoDlg("不能删除当前启用的计划"); return; }
   // 有历史打卡记录引用的计划不允许删除，否则历史热力图会丢失计划信息
   const used = Object.values(DB.days).filter(r=>r && r.planId === pid).length;
-  if(used){ alert(`该计划有 ${used} 天的历史打卡记录，不能删除。\n如需彻底清空，请使用「设置 → 重置数据」。`); return; }
-  if(confirm("删除计划？")){ delete DB.plans[pid]; save(); renderSet(); }
+  if(used){ infoDlg(`该计划有 ${used} 天的历史打卡记录，不能删除。\n如需彻底清空，请使用「设置 → 重置数据」。`); return; }
+  askDlg("删除计划", "将删除该计划，此操作不可恢复。", () => { delete DB.plans[pid]; save(); renderSet(); }, "删除", true);
 }
 function newPlan(){
   // 只新增、不切换当前计划；直接打开编辑器（名称 + 7 天内容一起编辑，取消则回滚）
@@ -1070,9 +1215,85 @@ function moveEx(pid, di, i, dir){
 
 // ---------- 热力图（按月分列，自动定位今天） ----------
 function levelOf(rec){ if(!rec||!rec.ex||!rec.ex.length) return 0; const r = rec.ex.filter(x=>x.done).length/rec.ex.length; return r===0?0:r<0.34?1:r<0.67?2:r<1?3:4; }
+// ---------- 统计推导（全部基于已有打卡数据，零输入） ----------
+function hasAnyRec(rec){
+  return !!(rec && ((rec.ex && rec.ex.some(x=>x.done)) || (rec.meals && rec.meals.some(Boolean))));
+}
+function streak(){
+  let n = 0;
+  const t = today();
+  if(!hasAnyRec(DB.days[dkey(t)])) t.setUTCDate(t.getUTCDate()-1);   // 今天还没打卡不打断连击
+  for(;;){
+    if(!hasAnyRec(DB.days[dkey(t)])) break;
+    n++;
+    t.setUTCDate(t.getUTCDate()-1);
+    if(n > 3650) break;   // 防御上限
+  }
+  return n;
+}
+function monthSummary(){
+  const t = today();
+  let done = 0;
+  for(let d=1; d<=t.getUTCDate(); d++){
+    if(hasAnyRec(DB.days[dkey(new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), d)))])) done++;
+  }
+  return { done, total: t.getUTCDate() };
+}
+function monthBars(){
+  const t = today(), out = [];
+  for(let mi=11; mi>=0; mi--){
+    let y = t.getUTCFullYear(), m = t.getUTCMonth() - mi;
+    while(m < 0){ m += 12; y--; }
+    const dim = new Date(Date.UTC(y, m+1, 0)).getUTCDate();
+    const last = (y===t.getUTCFullYear() && m===t.getUTCMonth()) ? t.getUTCDate() : dim;
+    let done = 0;
+    for(let d=1; d<=last; d++){
+      if(hasAnyRec(DB.days[dkey(new Date(Date.UTC(y, m, d)))])) done++;
+    }
+    out.push({ label:(m+1)+"月", done, total:last, pct: last ? Math.round(done/last*100) : 0 });
+  }
+  return out;
+}
+function planChanges(){
+  const out = []; let cur = "";
+  Object.keys(DB.days).sort().forEach(k=>{
+    const pid = DB.days[k] && DB.days[k].planId;
+    if(pid && pid !== cur){
+      const p = DB.plans[pid];
+      out.push({ date: k, name: p ? p.name : "(已删除的计划)" });
+      cur = pid;
+    }
+  });
+  return out;
+}
+function setHmOpen(v){ DB.settings.hmOpen = !!v; save(); renderHeatmap(); }
+function setStats(on){ DB.settings.showStats = !!on; save(); renderHeatmap(); renderSet(); }
+
 function renderHeatmap(){
   if(DB.settings && DB.settings.showHeatmap === false) return;   // 首页热力图已隐藏则跳过渲染
   const hm = document.getElementById("hm");
+  // —— 两态：收起为一行摘要（默认）/ 展开为完整热力图（可含统计看板）——
+  const open = DB.settings.hmOpen === true;
+  hm.style.display = open ? "" : "none";
+  const tg = document.getElementById("hmToggle");
+  if(tg) tg.textContent = open ? "收起 ▴" : "展开 ▾";   // 开关常驻热力图卡右上角（主导航上方）
+  const cap = document.getElementById("hmCap");
+  if(cap) cap.style.display = open ? "" : "none";
+  const lg = document.getElementById("hmLegend");
+  if(lg) lg.style.display = open ? "" : "none";
+  let sum = document.getElementById("hmSum");
+  if(!sum){ sum = document.createElement("div"); sum.id = "hmSum"; sum.className = "hm-sum"; document.getElementById("hmwrap").insertBefore(sum, hm); }
+  let stats = document.getElementById("hmStats");
+  if(!stats){ stats = document.createElement("div"); stats.id = "hmStats"; stats.className = "hm-stats"; document.getElementById("hmwrap").appendChild(stats); }
+  if(!open){
+    const s = monthSummary();
+    sum.style.display = "";
+    sum.innerHTML = `<b>连续 ${streak()} 天</b><span>本月 ${s.done}/${s.total} 天</span>`;
+    sum.onclick = () => setHmOpen(true);
+    stats.style.display = "none";
+    return;
+  }
+  sum.style.display = "none";
   const prevLeft = hm.scrollLeft;
   const wasAtEnd = prevLeft <= 0 || prevLeft >= hm.scrollWidth - hm.clientWidth - 2;
   hm.innerHTML = "";
@@ -1106,16 +1327,32 @@ function renderHeatmap(){
   }
   const first = Object.keys(DB.days).filter(k=>{const r=DB.days[k]; return r.ex&&r.ex.some(x=>x.done)||r.meals&&r.meals.some(Boolean);}).sort()[0];
   document.getElementById("hmL").textContent = first ? "自 "+first+" 起" : "今天开始记录";
+  // —— 统计看板（可选，默认隐藏）：计划变更点 + 逐月完成率 ——
+  if(DB.settings.showStats === true){
+    const bars = monthBars(), ch = planChanges();
+    stats.innerHTML =
+      (ch.length ? `<div class="st-t">计划变更</div>` + ch.map(c=>`<div class="st-row"><span class="st-l">${c.date.slice(5)}</span><span class="st-n">${esc(c.name)}</span></div>`).join("") : "") +
+      `<div class="st-t">逐月完成率</div>` +
+      bars.map(b=>`<div class="st-row"><span class="st-l">${b.label}</span><span class="st-bar"><i style="width:${b.pct}%"></i></span><span class="st-v">${b.done}/${b.total} 天</span></div>`).join("");
+    stats.style.display = "";
+  } else {
+    stats.style.display = "none";
+  }
   const wrap = document.getElementById("hm");
   requestAnimationFrame(()=>{
     wrap.scrollLeft = wasAtEnd ? wrap.scrollWidth : Math.min(prevLeft, wrap.scrollWidth - wrap.clientWidth);
   });
 }
-// 打卡后只更新"今天"那一格，避免整块热力图（最多 12 个月）重绘
+// 打卡后只更新"今天"那一格与收起态摘要行，避免整块热力图（最多 12 个月）重绘
 function updateHeatmapToday(){
   const ds = dkey(today());
   const b = document.querySelectorAll('#hm button[data-ds="' + ds + '"]')[0];
   if(b) b.className = "l" + levelOf(DB.days[ds]) + " today";
+  const sum = document.getElementById("hmSum");
+  if(sum && sum.style.display !== "none"){
+    const s = monthSummary();
+    sum.innerHTML = `<b>连续 ${streak()} 天</b><span>本月 ${s.done}/${s.total} 天</span>`;
+  }
 }
 function showDay(ds){
   const pop = document.getElementById("daypop");
@@ -1142,9 +1379,21 @@ function showDay(ds){
   if(pop.open) pop.hidePopover();
   pop.showPopover();
 }
+// ---------- 弹层点击穿透防护 ----------
+// Popover 的 ::backdrop 不拦截指针：点击弹层外会同时"关闭弹层 + 触发底下元素的 onclick"。
+// 做法：pointerdown 时记录弹层是否开着；若开着，本次手势的 click 一律吞掉 ——
+// 热力图格子除外（允许不关弹层连续换看不同的一天）。另保留 250ms 时间戳兜底。
 let popClosedAt = 0;
-document.getElementById("daypop").addEventListener("toggle", e=>{ if(e.newState==="closed") popClosedAt = Date.now(); });
-window.addEventListener("click", e=>{ if(Date.now()-popClosedAt < 250){ e.stopPropagation(); e.preventDefault(); } }, true);
+let popDownOpen = false;
+window.addEventListener("pointerdown", () => {
+  const p = document.getElementById("daypop");
+  popDownOpen = !!(p && p.matches && p.matches(":popover-open"));
+}, true);
+window.addEventListener("click", e => {
+  if (e.target && e.target.closest && e.target.closest("#hm button")) return;   // 换看另一天：放行
+  if (popDownOpen || Date.now() - popClosedAt < 250) { e.stopPropagation(); e.preventDefault(); }
+}, true);
+document.getElementById("daypop").addEventListener("toggle", e => { if (e.newState === "closed") popClosedAt = Date.now(); });
 
 // ---------- 数据导入导出 ----------
 function exportData(){
@@ -1155,21 +1404,26 @@ function exportData(){
 function importData(e){
   const input = e.target, f = input.files && input.files[0]; if(!f) return;
   const fr = new FileReader();
-  fr.onerror = ()=>{ alert("文件读取失败，请重试"); input.value = ""; };
+  fr.onerror = ()=>{ infoDlg("文件读取失败，请重试"); input.value = ""; };
   fr.onload = ()=>{
     input.value = "";   // 复位，允许再次选择同一个文件
     let obj;
-    try{ obj = JSON.parse(fr.result); }catch(_){ alert("JSON 格式错误：文件内容不是合法的 JSON"); return; }
+    try{ obj = JSON.parse(fr.result); }catch(_){ infoDlg("JSON 格式错误：文件内容不是合法的 JSON"); return; }
     if(obj && obj.kind === "hybh-custom"){ applyCustomPackage(obj); return; }   // AI 定制包
     if(obj && obj.schemaVersion){   // 全量备份（结构校验 + key 规范化）
-      if(!confirm("导入备份会覆盖当前全部数据（动作库、计划、饮食方案、打卡记录），且不可撤销。\n建议先「导出 JSON」留一份当前备份。\n\n确认导入？")) return;
-      try{
-        DB = sanitizeBackup(obj); save(); renderAll();
-        alert("导入完成：\n· 动作 " + Object.keys(DB.exercises).length + " 个\n· 计划 " + Object.keys(DB.plans).length + " 套\n· 饮食方案 " + Object.keys(DB.meals).length + " 套\n· 打卡记录 " + Object.keys(DB.days).length + " 天");
-      }catch(err){ alert("导入失败：" + ((err && err.message) || err)); }
+      askDlg("导入备份", "将覆盖当前全部数据（动作库、计划、饮食方案、打卡记录），且不可撤销。\n建议先「导出 JSON」留一份当前备份。", () => {
+        try{
+          DB = sanitizeBackup(obj); save(); renderAll();
+          okDlg("导入完成", `
+            <div class="pv"><span>动作</span><b>${Object.keys(DB.exercises).length} 个</b></div>
+            <div class="pv"><span>计划</span><b>${Object.keys(DB.plans).length} 套</b></div>
+            <div class="pv"><span>饮食方案</span><b>${Object.keys(DB.meals).length} 套</b></div>
+            <div class="pv"><span>打卡记录</span><b>${Object.keys(DB.days).length} 天</b></div>`, "知道了");
+        }catch(err){ infoDlg("导入失败：" + ((err && err.message) || err)); }
+      }, "确认导入", true);
       return;
     }
-    alert("无法识别的文件：既不是全量备份，也不是 AI 定制包");
+    infoDlg("无法识别的文件：既不是全量备份，也不是 AI 定制包");
   };
   fr.readAsText(f);
 }
@@ -1190,7 +1444,8 @@ function sanitizeBackup(o){
       sex:["male","female","none"].includes(o.settings&&o.settings.sex)?o.settings.sex:"none",
       targetWeight:sT,
       goal:(o.settings && SAFE_KEY.test(o.settings.goal))?o.settings.goal:"muscle", hmWeeks:[13,26,52].includes(o.settings&&o.settings.hmWeeks)?o.settings.hmWeeks:13,
-      showHeatmap:(o.settings&&o.settings.showHeatmap)!==false, seenIntro:(o.settings&&o.settings.seenIntro)===true },
+      showHeatmap:(o.settings&&o.settings.showHeatmap)!==false, seenIntro:(o.settings&&o.settings.seenIntro)===true,
+      hmOpen:(o.settings&&o.settings.hmOpen)===true, showStats:(o.settings&&o.settings.showStats)===true },
     activePlanId:(o.activePlanId && SAFE_KEY.test(o.activePlanId))?o.activePlanId:"" };
   Object.entries(o.exercises && typeof o.exercises==="object" ? o.exercises : {}).forEach(([k,e])=>{
     if(!e || typeof e!=="object") return;
@@ -1290,13 +1545,10 @@ function applyCustomPackage(pkg){
 
   const plN = Object.keys(newPlans).length, plU = updPlans.length;
   if(!plN && !plU && !mealObj){
-    alert("定制包中没有可导入的计划或饮食方案，已取消。"); return;
+    infoDlg("定制包中没有可导入的计划或饮食方案，已取消。"); return;
   }
 
   const exN = Object.keys(newEx).length;
-  const mealLine = mealObj
-    ? (mealObj._existKey ? `· 更新同名饮食方案「${mealObj.label}」（保持原位置，导入后启用）` : `· 新增饮食方案「${mealObj.label}」（导入后启用）`)
-    : "· 无饮食方案";
   // 4. 个人数据（可选）：先算出夹紧后的值用于预览，确认后才写入
   let stNext = null;
   if(pkg.settings && typeof pkg.settings === "object"){
@@ -1313,42 +1565,39 @@ function applyCustomPackage(pkg){
     };
   }
   const SEX_CN = { male:"男", female:"女", none:"不透露" };
-  const stLine = stNext
-    ? `· 个人数据将更新为：身高 ${stNext.height}cm · 体重 ${stNext.weight}kg · 年龄 ${stNext.age} · 性别 ${SEX_CN[stNext.sex]} · 目标 ${stNext.targetWeight}kg`
-    : "";
-  const lines = [
-    `AI 定制包导入预览（重复导入自动去重）：`,
-    `· 新增动作 ${exN} 个（重名自动复用已有动作）`,
-    `· 新增计划 ${plN} 套${plN ? "（导入后自动启用第一套）" : ""}`,
-    plU ? `· 更新同名计划 ${plU} 套（保持原位置与启用状态）` : "",
-    mealLine,
-    stLine,
-    warn.length ? `\n提示：\n· ${warn.slice(0,6).join("\n· ")}${warn.length>6?"\n· …":""}` : "",
-    `\n确认导入？`
-  ].filter(Boolean).join("\n");
-  if(!confirm(lines)) return;
+  // 确认改用应用内 <dialog>（可滚动、按钮 sticky），原生 confirm 长内容会把按钮顶出屏幕
+  const rowsHtml = [
+    ["新增动作", `${exN} 个（重名自动复用已有动作）`],
+    ["新增计划", `${plN} 套${plN ? "（导入后自动启用第一套）" : ""}`],
+    plU ? ["更新同名计划", `${plU} 套（保持原位置与启用状态）`] : "",
+    mealObj ? ["饮食方案", mealObj._existKey ? `更新「${esc(mealObj.label)}」（保持原位置，导入后启用）` : `新增「${esc(mealObj.label)}」（导入后启用）`] : "",
+    stNext ? ["个人数据将更新为", `身高 ${stNext.height}cm · 体重 ${stNext.weight}kg · 年龄 ${stNext.age} · 性别 ${SEX_CN[stNext.sex]} · 目标 ${stNext.targetWeight}kg`] : ""
+  ].filter(Boolean).map(r=>`<div class="pv"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
+  const warnHtml = warn.length ? `<div class="pvw">提示：${esc(warn.slice(0,6).join("；"))}${warn.length>6?"…":""}</div>` : "";
+  openDlg("AI 定制包导入预览", rowsHtml + warnHtml +
+    `<div class="meta" style="margin-top:8px">重复导入自动去重；确认后立即生效。</div>`, () => {
+    if(stNext) Object.assign(DB.settings, stNext);
 
-  if(stNext) Object.assign(DB.settings, stNext);
-
-  Object.assign(DB.exercises, newEx);
-  Object.assign(DB.plans, newPlans);
-  updPlans.forEach(([pid, days, dirVal])=>{ DB.plans[pid].days = days; if(dirVal) DB.plans[pid].dir = dirVal; });
-  if(plN) DB.activePlanId = Object.keys(newPlans)[0];
-  else if(plU && !updPlans.some(([pid])=>pid===DB.activePlanId)) DB.activePlanId = updPlans[0][0];
-  if(mealObj){
-    const k = mealObj._existKey || uid("ml");
-    delete mealObj._existKey;
-    DB.meals[k] = mealObj;
-    DB.settings.goal = k;
-  }
-  save(); renderAll();
-  alert(`导入完成：动作 +${exN} · 计划 新增${plN}/更新${plU}${mealObj?" · 饮食方案已启用":""}`);
+    Object.assign(DB.exercises, newEx);
+    Object.assign(DB.plans, newPlans);
+    updPlans.forEach(([pid, days, dirVal])=>{ DB.plans[pid].days = days; if(dirVal) DB.plans[pid].dir = dirVal; });
+    if(plN) DB.activePlanId = Object.keys(newPlans)[0];
+    else if(plU && !updPlans.some(([pid])=>pid===DB.activePlanId)) DB.activePlanId = updPlans[0][0];
+    if(mealObj){
+      const k = mealObj._existKey || uid("ml");
+      delete mealObj._existKey;
+      DB.meals[k] = mealObj;
+      DB.settings.goal = k;
+    }
+    save(); renderAll();
+    infoDlg(`导入完成：动作 +${exN} · 计划 新增${plN}/更新${plU}${mealObj?" · 饮食方案已启用":""}`);
+  }, null, "确认导入");
 }
 function resetData(){
-  if(confirm("确定重置全部数据？\n动作库、计划、打卡记录将清空并恢复初始状态，此操作不可恢复（可先导出备份）。")){
+  askDlg("重置数据", "动作库、计划、打卡记录将清空并恢复初始状态。\n此操作不可恢复，建议先「导出 JSON」备份。", () => {
     localStorage.removeItem(KEY);
     location.reload();
-  }
+  }, "确认重置", true);
 }
 
 // ---------- AI 定制 tab（SKILL 复制 + JSON 粘贴导入） ----------
@@ -1393,26 +1642,26 @@ function renderAi(){
 }
 function copySkill(){
   loadSkill().then(text=>{
-    const ok = ()=>alert("SKILL 已复制到剪贴板\n发给 AI 时附上你的需求即可");
+    const ok = ()=>infoDlg("SKILL 已复制到剪贴板\n发给 AI 时附上你的需求即可");
     if(navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(text).then(ok).catch(()=>fallbackCopy(text, ok));
     }else{ fallbackCopy(text, ok); }
-  }).catch(()=>alert(SKILL_LOAD_FAIL));
+  }).catch(()=>infoDlg(SKILL_LOAD_FAIL));
 }
 function fallbackCopy(text, ok){
   const t = document.createElement("textarea");
   t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
   document.body.appendChild(t); t.select();
-  try{ document.execCommand("copy"); ok(); }catch(_){ alert("复制失败，请在「查看全文」中手动全选复制"); }
+  try{ document.execCommand("copy"); ok(); }catch(_){ infoDlg("复制失败，请在「查看全文」中手动全选复制"); }
   document.body.removeChild(t);
 }
 function importPkgText(){
   const v = document.getElementById("pkg-box").value.trim();
-  if(!v){ alert("请先粘贴 AI 返回的定制包 JSON"); return; }
+  if(!v){ infoDlg("请先粘贴 AI 返回的定制包 JSON"); return; }
   let obj;
-  try{ obj = JSON.parse(v); }catch(_){ alert("JSON 格式错误：请检查是否完整复制（从 { 到 } 全选）"); return; }
+  try{ obj = JSON.parse(v); }catch(_){ infoDlg("JSON 格式错误：请检查是否完整复制（从 { 到 } 全选）"); return; }
   if(!obj || obj.kind !== "hybh-custom"){
-    alert("这不是 AI 定制包（缺少 kind:\"hybh-custom\"）\n请让 AI 严格按 SKILL 中的数据契约重新生成"); return;
+    infoDlg("这不是 AI 定制包（缺少 kind:\"hybh-custom\"）\n请让 AI 严格按 SKILL 中的数据契约重新生成"); return;
   }
   applyCustomPackage(obj);
 }
@@ -1661,7 +1910,7 @@ function drawShareCard(){
 function shareCard(){
   const cv = drawShareCard();
   cv.toBlob(blob=>{
-    if(!blob){ alert("分享图生成失败"); return; }
+    if(!blob){ infoDlg("分享图生成失败"); return; }
     const file = new File([blob], "hybh-打卡分享.png", { type:"image/png" });
     if(navigator.canShare && navigator.canShare({ files:[file] })){
       navigator.share({ files:[file], title:"H.Y.B.H 打卡分享", text:"我的训练与饮食打卡 ↓" }).catch(()=>{});
@@ -1677,22 +1926,33 @@ function shareCard(){
 // 切换时惰性重渲染目标面板（保证打卡后各页计数新鲜；AI 页除外，避免清掉粘贴中的 JSON）
 // 同时把当前 tab 写进 location.hash，刷新 / 前进后退都能停在同一页
 const TAB_RENDER = { today:renderToday, diet:renderDiet, week:renderWeek, lib:renderLib, set:renderSet };
+const TAB_DONE = new Set();   // 已渲染过的面板：数据变化时由各修改点显式重渲染对应面板，切页不重建（轮播 6 页常驻，重复 innerHTML 重建是滑动卡顿主因）
+function renderTab(p){
+  if(TAB_RENDER[p] && !TAB_DONE.has(p)){ TAB_RENDER[p](); TAB_DONE.add(p); }
+}
 const TAB_NAMES = ["today","diet","week","lib","set","ai"];
 const tabFromHash = ()=>{
   const h = (typeof location !== "undefined" && location.hash ? location.hash : "").replace(/^#/,"");
   return TAB_NAMES.includes(h) ? h : "today";
 };
-function switchTab(p){
+let curTab = "today";
+function applyTab(p){   // 实际切页：导航高亮 + 轮播定位 + 懒渲染（滑动与 hash 共用此入口）
   if(!TAB_NAMES.includes(p)) p = "today";
+  curTab = p;
   document.querySelectorAll("#nav button").forEach(x=>{
     const on = x.dataset.p === p;
     x.classList.toggle("on", on);
     if(on) x.setAttribute?.("aria-current","page"); else x.removeAttribute?.("aria-current");
   });
-  document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));
+  const m = document.getElementById("main");
   const panel = document.getElementById("p-"+p);
-  if(panel) panel.classList.add("on");
-  if(TAB_RENDER[p]) TAB_RENDER[p]();
+  if(m && panel) m.scrollTo({ left: panel.offsetLeft, behavior:"auto" });   // 轮播定位（面板常驻，不再切 display）
+  renderTab(p);
+  startAnim();   // 切页后按新页重建动画缓存（未重渲染时也要切到新页的 SVG）
+}
+function switchTab(p){  // 语义入口：写 hash（深链/前进后退），由 hashchange 统一 applyTab
+  if(!TAB_NAMES.includes(p)) p = "today";
+  if(location.hash !== "#"+p) location.hash = p; else applyTab(p);
 }
 document.querySelectorAll("#nav button").forEach(b=>{
   b.onclick = ()=>{
@@ -1702,13 +1962,31 @@ document.querySelectorAll("#nav button").forEach(b=>{
   };
 });
 window.addEventListener("hashchange", ()=>switchTab(tabFromHash()));
-function renderAll(){ renderToday(); renderDiet(); renderWeek(); renderLib(); renderSet(); renderAi(); applyHeatmapVisibility(); startAnim(); }
+// 主导航轮播：滑动切换面板（scroll-snap），滚动停稳后同步导航与懒渲染（经 hashchange 单入口，避免双写）
+let tabSyncT = 0;
+document.getElementById("main").addEventListener("scroll", ()=>{
+  scrollHold = true;   // 滑动/惯性滚动中暂停 SVG 动画
+  clearTimeout(tabSyncT);
+  tabSyncT = setTimeout(()=>{
+    scrollHold = false;
+    const m = document.getElementById("main");
+    const idx = Math.max(0, Math.min(TAB_NAMES.length-1, Math.round(m.scrollLeft / (m.clientWidth || 1))));
+    const p = TAB_NAMES[idx];
+    if(p && p !== curTab){
+      applyTab(p);
+      // 滑动切页也要同步 hash（replaceState 不产生历史记录）：否则 hash 停在旧页
+      // （如点过导航「AI」或欢迎弹窗「去定制」后一直 #ai），刷新/重开总被定位回旧页
+      if(location.hash !== "#"+p) history.replaceState(null, "", "#"+p);
+    }
+  }, 120);
+}, { passive:true });
+function renderAll(){ renderToday(); renderDiet(); renderWeek(); renderLib(); renderSet(); renderAi(); applyHeatmapVisibility(); startAnim(); TAB_NAMES.forEach(p=>TAB_DONE.add(p)); }
 
 // ---------- 安装引导（PWA 添加到桌面） ----------
 // 支持 beforeinstallprompt 的浏览器可一键安装；华为/鸿蒙等浏览器不提供，则降级为文字引导
 let installEvt = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; renderSet(); });
-window.addEventListener("appinstalled", ()=>{ installEvt = null; alert("已添加到桌面，可从桌面图标直接打开。"); });
+window.addEventListener("appinstalled", ()=>{ installEvt = null; infoDlg("已添加到桌面，可从桌面图标直接打开。"); });
 function isStandalone(){ return navigator.standalone === true || !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches); }
 function installHint(){
   if(isStandalone()) return "已在桌面模式下运行，无需重复添加。";
@@ -1721,10 +1999,11 @@ function installApp(){
     const done = ()=>{ installEvt = null; renderSet(); };
     (installEvt.userChoice || Promise.resolve()).then(done, done);
   } else {
-    alert("当前浏览器没有提供自动安装。\n请在浏览器菜单中选择「添加到桌面」或「添加到主屏幕」。");
+    infoDlg("当前浏览器没有提供自动安装。\n请在浏览器菜单中选择「添加到桌面」或「添加到主屏幕」。");
   }
 }
-switchTab(tabFromHash());   // 按 URL hash 恢复上次的 tab（默认「今日」）
+if(typeof history !== "undefined" && "scrollRestoration" in history) history.scrollRestoration = "manual";   // 禁用浏览器滚动位置恢复（防止重载时盖过 hash 定位）
+applyTab(tabFromHash());   // 按 URL hash 定位（深链生效）；无 hash 默认「今日」
 
 // 无痕 / 隐私模式检测（思路参考 detectIncognito.js，不引第三方库）
 // · Firefox / Safari：隐私模式下 OPFS(navigator.storage.getDirectory) 会抛特定错误
@@ -1811,9 +2090,7 @@ function introNotice(){
   if(DB.settings.seenIntro) return;
   DB.settings.seenIntro = true; save();
   setTimeout(()=>{                       // 等首屏渲染完再弹
-    if(confirm("欢迎使用 H.Y.B.H\n\n内置的计划与饮食方案是「通用示例」：饮食份量会随你的体重与目标自动缩放，但食物选择和训练编排是固定的。\n\n想现在去定制一份贴合自己的方案吗？（在「AI」页把 SKILL 发给任意 AI，回传的定制包会连同身高体重、目标一起写入，无需手动填写）")){
-      location.hash = "#ai";
-    }
+    askDlg("欢迎使用 H.Y.B.H", "内置的计划与饮食方案是「通用示例」：饮食份量会随你的体重与目标自动缩放，但食物选择和训练编排是固定的。\n想贴合自己的情况？在「AI」页把 SKILL 发给任意 AI，回传的定制包会连同身高体重、目标一起写入，无需手动填写。", () => { location.hash = "#ai"; }, "去定制");
   }, 300);
 }
 storageNotice();
