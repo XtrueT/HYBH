@@ -49,6 +49,10 @@
   button, a, [role="button"], .chip, .hm button { touch-action:manipulation; }
   /* 按压反馈：手指按下即有回应（只给真正可点的元素，避免误导演示性列表） */
   .btn:active, nav button:active, .chip:active, .ex[onclick]:active, .meal[onclick]:active,
+  /* 收起态摘要行：与右上角「展开」按钮同高居中对齐（按钮 25px，原来行高只有 19px，上下各冒出来一点） */
+  .hm-sum { display:flex; align-items:center; gap:8px; min-height:26px; cursor:pointer; font-size:12.5px; }
+  .hm-sum b { color:var(--ink); }
+  .hm-sum span { color:var(--mut); font-size:11.5px; }
   .hm-sum:active, #hmToggle:active { opacity:.55; }
   @media (min-width:720px){ body{max-width:480px; margin:0 auto; box-shadow:0 0 24px rgba(0,0,0,.08);} }
 
@@ -67,8 +71,10 @@
   header .logo { font-size:17px; font-weight:800; letter-spacing:3px; }
   header .r { font-size:11px; color:var(--mut); }
 
-  .hmwrap { padding:10px 16px 4px; position:relative; }
-  #hmToggle { position:absolute; top:8px; right:14px; z-index:2; font-size:11px; font-style:normal;
+  /* 热力图区固定在 header 下方（不随各页滚动），底部加一条分隔线，
+     否则页面滚动时被裁切的卡片内容会紧贴摘要行，看起来像"浮"在一起 */
+  .hmwrap { padding:10px 16px 4px; position:relative; border-bottom:1px solid var(--line); }
+  #hmToggle { position:absolute; top:10px; right:14px; z-index:2; font-size:11px; font-style:normal;
     color:var(--accent); background:var(--card); border:1px solid var(--line); border-radius:10px;
     padding:4px 9px; cursor:pointer; }
   /* 展开态：按钮改为热力图上方独立一行右对齐，避免压住最右一列的格子
@@ -97,7 +103,7 @@
   nav { display:flex; margin:12px 16px 0; border-bottom:1px solid var(--line); order:0; }
   nav button { flex:1; text-align:center; font-size:12.5px; font-weight:500; color:var(--mut); padding:9px 0; cursor:pointer;
     background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
-  nav button.on { color:var(--ink); font-weight:700; border-bottom-color:var(--accent); }
+  nav button.on { color:var(--accent); font-weight:700; border-bottom-color:var(--accent); }   /* 与底部模式统一用强调色 */
   main { flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; order:1;
     scroll-snap-type:x mandatory; scrollbar-width:none;
     /* 横向滑到首/末页不再把滚动链交给浏览器（否则 iOS 会触发前进后退手势）；不影响页内轮播 */
