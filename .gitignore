@@ -37,3 +37,4 @@ package/harmony-native/entry/build/
 # ---- AI 工作区本地数据（含本地记忆，按需保留） ----
 .workbuddy-ai/
 .playwright-cli/
+docs/

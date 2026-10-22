@@ -5,6 +5,7 @@ const fs = require("fs");
 
 // ---------- 桩环境 ----------
 const el = () => ({ style:{}, value:"", dataset:{}, open:false, scrollTop:0, scrollLeft:0, scrollWidth:0, clientWidth:300, offsetLeft:0,
+  children:[],
   scrollTo(){},
   classList:{ add(){}, remove(){}, toggle(c,v){ this._t=[c,v]; } },
   closest(){ return null; }, matches(){ return false; }, querySelector(){ return null; }, appendChild(){}, addEventListener(){}, insertAdjacentHTML(){}, onclick:null,
@@ -15,7 +16,7 @@ const el = () => ({ style:{}, value:"", dataset:{}, open:false, scrollTop:0, scr
   set textContent(v){ this._t=v; }, get textContent(){ return this._t||""; } });
 const memo = {};
 global.localStorage = { _d:{}, getItem(k){ return this._d[k] ?? null; }, setItem(k,v){ this._d[k]=v; }, removeItem(k){ delete this._d[k]; } };
-global.document = { getElementById(id){ if(!memo[id]) memo[id]=el(); return memo[id]; }, createElement:el, querySelectorAll:()=>[] };
+global.document = { body: el(), getElementById(id){ if(!memo[id]) memo[id]=el(); return memo[id]; }, createElement:el, querySelectorAll:()=>[] };
 global.window = { addEventListener(){} };
 global.requestAnimationFrame = f=>f();
 try { global.navigator = {}; } catch(_) { /* Node 22 自带只读 navigator，跳过 */ }
@@ -85,7 +86,7 @@ T.applyCustomPackage({ kind:"hybh-custom", v:1,
     {n:"午",p:"30g",cost:"¥12",rows:[row,row,row]},
     {n:"晚",p:"25g",cost:"¥9",rows:[row,row,row]}] } });
 T.renderDiet();
-const dh = memoEl("p-diet").innerHTML;
+const dh = memoEl("st-plan").innerHTML;
 eq("饮食页无原始 <img/onerror>/<u>", !dh.includes("<img") && !dh.includes("onerror") && !dh.includes("<u>"));
 eq("label 已转义", dh.includes("&lt;img"));
 eq("餐名已转义", dh.includes("&lt;img src=y"));

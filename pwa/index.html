@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; img-src 'self' data: blob:; manifest-src 'self'; worker-src 'self'; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'none';">
 <title>H.Y.B.H 健身追踪 · 训练与饮食打卡</title>
 <meta name="description" content="H.Y.B.H 是一款纯本地的健身打卡 PWA：内置增肌/减脂训练计划与饮食方案，按你的身高体重与目标自动折算热量、蛋白与份量；支持把 SKILL.md 发给任意 AI 生成定制计划与饮食并一键导入；全部数据只存在浏览器本地，可导出 JSON 备份，支持离线使用。">
 <link rel="canonical" href="https://fitness.hybh.link/">
@@ -34,8 +34,22 @@
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { height:100%; }
+  /* 浏览器标签页里收紧：防误触整页 reload（会丢 AI 页粘贴内容）与横滑返回手势 */
+  html { -webkit-text-size-adjust:100%; overscroll-behavior:none; }
   body { background:var(--bg); color:var(--ink); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-    height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+    height:100dvh; display:flex; flex-direction:column; overflow:hidden; overscroll-behavior:none;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  /* 已安装成 App：standalone 下本来就没有浏览器下拉刷新，放开纵向回弹换回 iOS 橡皮筋手感。
+     用 html 上的类（启动时由 isStandalone() 判定）而非 @media (display-mode) —— 后者在部分
+     WebView / 旧内核里不生效，且 iOS 需靠 navigator.standalone 才能可靠判定。 */
+  html.standalone, html.standalone body { overscroll-behavior:auto; }
+  /* 需要选字与复制的区域恢复文本选择（AI 页 SKILL 全文、表单输入） */
+  input, textarea, pre { -webkit-user-select:text; user-select:text; }
+  /* 可点元素去掉双击缩放的等待；不阻断双指缩放 */
+  button, a, [role="button"], .chip, .hm button { touch-action:manipulation; }
+  /* 按压反馈：手指按下即有回应（只给真正可点的元素，避免误导演示性列表） */
+  .btn:active, nav button:active, .chip:active, .ex[onclick]:active, .meal[onclick]:active,
+  .hm-sum:active, #hmToggle:active { opacity:.55; }
   @media (min-width:720px){ body{max-width:480px; margin:0 auto; box-shadow:0 0 24px rgba(0,0,0,.08);} }
 
   /* 无 JS 提示：纯 HTML/CSS，脚本被禁用时也能显示 */
@@ -54,10 +68,16 @@
   header .r { font-size:11px; color:var(--mut); }
 
   .hmwrap { padding:10px 16px 4px; position:relative; }
-  #hmToggle { position:absolute; top:8px; right:14px; z-index:2; font-size:10.5px; font-style:normal;
+  #hmToggle { position:absolute; top:8px; right:14px; z-index:2; font-size:11px; font-style:normal;
     color:var(--accent); background:var(--card); border:1px solid var(--line); border-radius:10px;
-    padding:1px 8px; cursor:pointer; }
-  .hm { display:flex; gap:9px; width:max-content; max-width:100%; margin:0 auto; overflow-x:auto; padding-top: 4px; }
+    padding:4px 9px; cursor:pointer; }
+  /* 展开态：按钮改为热力图上方独立一行右对齐，避免压住最右一列的格子
+     （收起态只有一行摘要、右侧是空白，绝对定位不会挡到任何内容） */
+  .hmwrap.open #hmToggle { position:static; display:block; width:max-content; margin:0 0 2px auto; }
+  /* 横向滚动条会以主题色压在月份标签上（全局 scrollbar-color），这里与 main/strip 一致地隐藏掉 */
+  .hm { display:flex; gap:9px; width:max-content; max-width:100%; margin:0 auto; overflow-x:auto; padding-top: 4px;
+    scrollbar-width:none; }
+  .hm::-webkit-scrollbar { display:none; }
   .mlab{font-size: 10px;}
   .mcol { display:flex; flex-direction:column; gap:4px; }
   .mgrid { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,13px); grid-auto-columns:13px; gap:3px; }
@@ -74,43 +94,75 @@
   .hm-legend i.l3{background:var(--g3)} .hm-legend i.l4{background:var(--g4)}
   .cap { display:flex; justify-content:space-between; font-size:10px; color:var(--mut); margin-top:6px; max-width:266px; margin-left:auto; margin-right:auto; }
 
-  nav { display:flex; margin:12px 16px 0; border-bottom:1px solid var(--line); }
+  nav { display:flex; margin:12px 16px 0; border-bottom:1px solid var(--line); order:0; }
   nav button { flex:1; text-align:center; font-size:12.5px; font-weight:500; color:var(--mut); padding:9px 0; cursor:pointer;
     background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
   nav button.on { color:var(--ink); font-weight:700; border-bottom-color:var(--accent); }
-  main { flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden;
-    scroll-snap-type:x mandatory; scrollbar-width:none; }
+  main { flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; order:1;
+    scroll-snap-type:x mandatory; scrollbar-width:none;
+    /* 横向滑到首/末页不再把滚动链交给浏览器（否则 iOS 会触发前进后退手势）；不影响页内轮播 */
+    overscroll-behavior-x:contain; }
+  /* —— 导航栏位置：底部 tab bar（默认，贴合原生 App）/ 顶部标签（原布局）——
+     仅调整 flex order，DOM 结构不变，两种模式共用同一套切页逻辑 */
+  body.nav-bottom nav { order:3; margin:0; border-bottom:none; border-top:1px solid var(--line);
+    background:var(--card); padding-bottom:env(safe-area-inset-bottom); }
+  /* 高度对齐原生：iOS 49pt / Android 48dp（下方安全区另算） */
+  body.nav-bottom nav button { position:relative; height:48px; padding:0; font-size:12px; border-bottom:none; margin-bottom:0;
+    display:flex; align-items:center; justify-content:center; }
+  body.nav-bottom nav button.on { color:var(--accent); font-weight:700; }
+  /* 选中项顶部的短指示条：底部 tab bar 的位置锚点 */
+  body.nav-bottom nav button.on::before { content:""; position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:18px; height:2px; background:var(--accent); }
+  /* 键盘弹出时收起 tab bar（否则会被顶到键盘上方悬着），只在触屏设备由脚本加类 */
+  body.nav-bottom.kb-open nav { display:none; }
   main::-webkit-scrollbar { display:none; }
   /* 键盘可达性：只在键盘导航时显示焦点圈，鼠标点击不显示 */
   :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   /* 弹窗按钮：程序化 focus 不触发 :focus-visible，故弹窗内用普通 :focus 保证焦点可见 */
   dialog .dbtns .btn:focus { outline:2px solid var(--accent); outline-offset:2px; }
+  /* 动作图三帧动画：纯 CSS（opacity）驱动，不占主线程 —— 上下滚动列表时不再与
+     JS 定时器抢资源（旧实现每 700ms 切换 display，会触发整棵 SVG 重新布局） */
+  @keyframes fig0 { 0%,33.32%{opacity:1} 33.33%,100%{opacity:0} }
+  @keyframes fig1 { 0%,33.32%{opacity:0} 33.33%,66.65%{opacity:1} 66.66%,100%{opacity:0} }
+  @keyframes fig2 { 0%,66.65%{opacity:0} 66.66%,100%{opacity:1} }
+  svg .f0 { animation:fig0 2.1s linear infinite; }
+  svg .f1 { animation:fig1 2.1s linear infinite; }
+  svg .f2 { animation:fig2 2.1s linear infinite; }
   /* 尊重系统「减少动效」偏好 */
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+    /* 动画关掉后必须显式停在首帧，否则三帧会同时可见 */
+    svg .f0, svg .f1, svg .f2 { animation:none !important; }
   }
 
   .panel { flex:0 0 100%; min-width:100%; height:100%; min-height:0; padding:12px 16px 20px; scroll-snap-align:start; }
-  #p-week, #p-today, #p-lib, #p-diet { display:flex; flex-direction:column; overflow:hidden; }
-  #p-set, #p-ai { overflow-y:auto; }
+  #p-plan, #p-today, #p-lib { display:flex; flex-direction:column; overflow:hidden; }
+  #p-set { overflow-y:auto; }
   /* 面板结构统一：头部固定 + 列表自身滚动 */
   .p-head { flex-shrink:0; }
   .p-list { flex:1; min-height:0; overflow-y:auto; }
   #p-today .today-head { flex-shrink:0; }
   #p-today .list-wrap { flex:1; min-height:0; overflow-y:auto; }
-  #p-week .strip { flex:1; min-height:0; overflow-x:auto; overflow-y:hidden; }
-  #p-week .slide { height:100%; overflow-y:auto; padding-right:10px; }
-  #p-week .dots { flex-shrink:0; }
+  /* 计划页 = 一个横向轮播：第 1 页是饮食方案，第 2-8 页是周一到周日。
+     不再拆「训练 / 饮食」两个子视图（拆了以后 dots 与内容容易不同步，也多一层切换）。 */
+  #p-plan .strip { flex:1; min-height:0; overflow-x:auto; overflow-y:hidden; }
+  #p-plan .slide { height:100%; overflow-y:auto; padding-right:10px; display:flex; flex-direction:column; }
+  /* 统一「头卡 + 列表卡」两段式：最后一张卡吃掉剩余高度，内容多时按内容增高、由 slide 滚动 */
+  #p-plan .slide > .card:last-child { flex:1 0 auto; }
+  #p-plan .dots { flex-shrink:0; }
 
   /* Dialog 编辑弹窗 */
+  /* 弹窗宽度全站统一：与 card 同宽（左右各留 16px），桌面端上限 448 = body 480 - 32。
+     用 100% 而不是 100vw —— vw 在部分环境会含滚动条宽度，导致比卡片窄几像素 */
   dialog { border:1px solid var(--line); background:var(--card); color:var(--ink);
-    box-shadow:0 6px 24px rgba(26,26,26,.18); padding:14px; width:min(320px, 88vw);
-    max-height:80vh; overflow-y:auto; margin:auto; }
+    box-shadow:0 6px 24px rgba(26,26,26,.18); padding:14px; width:min(calc(100% - 32px), 448px);
+    max-width:none;   /* UA 默认 max-width:calc(100% - 6px - 2em) 会把宽度又压窄 6px */
+    max-height:80vh; max-height:min(80vh, 80dvh); overflow-y:auto; margin:auto; }
   dialog::backdrop { background:rgba(26,26,26,.25); }
   dialog h3 { font-size:14px; margin-bottom:6px; }
   dialog .dbtns { display:flex; gap:8px; margin-top:14px; position:sticky; bottom:-14px;
     background:var(--card); padding:10px 0 4px; border-top:1px solid var(--line); margin:14px -14px -14px; padding:10px 14px 14px; }
-  dialog .dbtns .btn { flex:1; }
+  dialog .dbtns .btn { flex:1; min-height:42px; padding:0 12px; font-size:13px; }   /* 弹窗主操作：最好点 */
 
   /* 面板内 CSS 轮播。不加 overscroll-behavior-x:contain —— 必须保留滚动链，
      内部轮播滑到首/末张继续滑时，手势才能传给外层 main 切换到上/下一个 tab */
@@ -161,25 +213,36 @@
   .tag { color:var(--accent); font-size:10.5px; }
 
   /* 库 / 编辑器 */
-  .btn { border:1px solid var(--line); background:var(--card); padding:7px 12px; font-size:12px; cursor:pointer; color:var(--ink); font-weight:normal; }
+  /* 触控目标：主按钮 38px、次要按钮 32px（原来 25px 太小，手机上难点准） */
+  .btn { display:inline-flex; align-items:center; justify-content:center; min-height:38px; padding:0 14px;
+    border:1px solid var(--line); background:var(--card); font-size:12.5px; cursor:pointer; color:var(--ink); font-weight:normal; font-family:inherit; }
   .btn.acc { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
-  .btn.sm { padding:4px 8px; font-size:11px; }
+  /* 实心主操作按钮：全站只有「AI 定制」用它，用来和一堆描边按钮拉开层级 */
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  /* 危险操作（删除/重置）：项目统一的 #a33 */
+  .btn.danger { color:#a33; border-color:#e8cfcb; }
+  .btn.sm { min-height:32px; padding:0 11px; font-size:12px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
-  .chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); background:var(--bg); padding:3px 8px; font-size:11.5px; }
+  .chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); background:var(--bg);
+    padding:6px 11px; font-size:12px; cursor:pointer; font-family:inherit; color:var(--ink); }
   .chip b { color:var(--mut); cursor:pointer; font-weight:400; }
   .exitem { display:flex; align-items:center; gap:8px; padding:8px 2px; border-bottom:1px solid var(--line); font-size:12.5px; }
   .exitem:last-child { border-bottom:none; }
   .exitem .idx { color:var(--mut); width:16px; font-size:11px; }
   .exitem .nm { flex:1; }
-  .exitem .ops { display:flex; gap:10px; color:var(--accent); cursor:pointer; }
-  .exitem .ops .del { color:var(--mut); }
+  /* 排序/删除是真按钮：32px 方块，看得出可点、也点得准（原来只是裸字符） */
+  .exitem .ops { display:flex; gap:6px; }
+  .exitem .ops button { width:32px; height:32px; display:grid; place-items:center; padding:0;
+    border:1px solid var(--line); background:var(--card); color:var(--accent); cursor:pointer;
+    font-family:inherit; font-size:15px; line-height:1; }
+  .exitem .ops button.del { color:#a33; border-color:#e8cfcb; }   /* 删除：项目统一的危险色 */
   .frow { display:flex; gap:10px; margin-top:8px; }
   .frow label { flex:1; font-size:11px; color:var(--mut); }
-  .frow input, .frow select, .frow textarea { width:100%; margin-top:3px; padding:7px; border:1px solid var(--line); font-size:12.5px; background:var(--card); color:var(--ink); font-family:inherit; }
+  .frow input, .frow select, .frow textarea { width:100%; margin-top:3px; padding:9px; border:1px solid var(--line); font-size:13px; background:var(--card); color:var(--ink); font-family:inherit; }
   .frow textarea { height:46px; resize:none; }
 
   /* Popover（当天执行情况）：top layer 居中 */
-  #daypop { position:fixed; inset:0; width:min(300px, 84vw); height:fit-content; max-height:70vh; overflow-y:auto; margin:auto; border:1px solid var(--line); background:var(--card); box-shadow:0 6px 24px rgba(26,26,26,.18); padding:14px; }
+  #daypop { position:fixed; inset:0; width:min(300px, 84vw); height:fit-content; max-height:70vh; max-height:min(70vh, 70dvh); overflow-y:auto; margin:auto; border:1px solid var(--line); background:var(--card); box-shadow:0 6px 24px rgba(26,26,26,.18); padding:14px; }
   #daypop::backdrop { background:rgba(26,26,26,.25); }
   #daypop h3 { font-size:13.5px; margin-bottom:8px; }
   #daypop .row { display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px solid var(--line); }
@@ -188,10 +251,6 @@
   #daypop .no { color:var(--mut); }
   #daypop .foot { font-size:10.5px; color:var(--mut); margin-top:8px; }
 
-  footer { flex-shrink:0; text-align:center; font-size:10px; color:var(--mut); padding:6px 16px; padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
-  footer .flinks { margin-top:2px; display:flex; justify-content:center; gap:2px; }
-  footer a { color:var(--mut); text-decoration:none; padding:8px 10px; }
-  footer a:hover { text-decoration:underline; }
   /* 站外链接标识：在新窗口打开的外部链接自动加 ↗，与站内链接区分 */
   a[target="_blank"]::after { content:"↗"; margin-left:2px; font-size:.85em; opacity:.75; }
   a[target="_blank"]:hover::after { opacity:1; }
@@ -207,6 +266,9 @@
   dialog .pv span { color:var(--mut); }
   dialog .pv b { font-weight:600; color:var(--ink); text-align:right; }
   dialog .pvw { font-size:10.5px; color:var(--mut); margin-top:8px; }
+  /* 分享预览：长图放在固定高度里滚动，能看到整张卡片的构图 */
+  .share-pv { max-height:56vh; max-height:min(56vh, 56dvh); overflow-y:auto; border:1px solid var(--line); background:var(--bg); }
+  .share-pv img { display:block; width:100%; height:auto; }
   .hm-stats { margin-top:8px; border-top:1px solid var(--line); padding-top:8px; }
   .hm-stats .st-t { font-size:10.5px; color:var(--mut); margin:6px 0 3px; }
   .hm-stats .st-row { display:flex; align-items:center; gap:8px; font-size:11px; padding:2px 0; }
@@ -234,7 +296,8 @@
 </header>
 
 <div class="hmwrap" id="hmwrap">
-  <span id="hmToggle" role="button" onclick="setHmOpen(DB.settings.hmOpen !== true)"></span>
+  <span id="hmToggle" role="button" tabindex="0" onclick="setHmOpen(DB.settings.hmOpen !== true)"
+    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setHmOpen(DB.settings.hmOpen!==true);}"></span>
   <div class="hm" id="hm"></div>
   <div class="hm-legend" id="hmLegend"><span>少</span><i></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>多</span></div>
   <div class="cap" id="hmCap"><span id="hmL"></span><span>点击方块查看当天执行情况</span></div>
@@ -242,19 +305,17 @@
 </div>
 
 <nav id="nav" aria-label="主导航">
-  <button type="button" class="on" data-p="today" aria-current="page">今日</button><button type="button" data-p="diet">饮食</button><button type="button" data-p="week">周计划</button><button type="button" data-p="lib">库</button><button type="button" data-p="set">设置</button><button type="button" data-p="ai">AI</button>
+  <button type="button" class="on" data-p="today" aria-current="page">今日</button><button type="button" data-p="plan">计划</button><button type="button" data-p="lib">库</button><button type="button" data-p="set">设置</button>
 </nav>
 
 <main id="main">
   <div class="panel on" id="p-today"></div>
-  <div class="panel" id="p-diet"></div>
-  <div class="panel" id="p-week">
-    <div class="strip" id="st-week"></div>
-    <div class="dots" id="dt-week"></div>
+  <div class="panel" id="p-plan">
+    <div class="strip" id="st-plan"></div>
+    <div class="dots" id="dt-plan"></div>
   </div>
   <div class="panel" id="p-lib"></div>
   <div class="panel" id="p-set"></div>
-  <div class="panel" id="p-ai"></div>
 </main>
 
 <!-- SKILL 契约原文已移至 SKILL.md（单一来源；应用内通过 fetch 异步加载，离线由 Service Worker 预缓存） -->
@@ -262,9 +323,7 @@
 <div id="daypop" popover></div>
 <dialog id="dlg"></dialog>
 
-<footer>
-  <div class="flinks"><a href="/privacy">隐私政策</a><a href="https://github.com/XtrueT/HYBH" target="_blank" rel="noopener noreferrer">GitHub</a></div>
-</footer>
+<!-- 页脚已移除：隐私政策 / GitHub / 版本号 / 免责声明统一收进「设置 → 关于」，底部 tab bar 独占底部 -->
 
 <script>
 "use strict";
@@ -301,25 +360,13 @@ function pose(type, ph){
   }
 }
 function exFig(type){
+  // 三帧常驻 DOM，靠 CSS opacity 动画交替显隐（见样式里的 fig0/fig1/fig2）：
+  // 不再用 display 切换，避免每帧触发布局导致滚动掉帧。inline opacity 是动画缺席时的兜底。
   return `<svg width="52" height="52" viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
-    <g class="f0">${pose(type,0)}</g><g class="f1" style="display:none">${pose(type,1)}</g><g class="f2" style="display:none">${pose(type,2)}</g></svg>`;
+    <g class="f0">${pose(type,0)}</g><g class="f1" style="opacity:0">${pose(type,1)}</g><g class="f2" style="opacity:0">${pose(type,2)}</g></svg>`;
 }
-let animTimer=null, animPh=0, animNodes=[], scrollHold=false;   // scrollHold：任一轮播滚动中置 true，动画暂停让路给触摸滚动
-function startAnim(){
-  clearInterval(animTimer);
-  // 缓存当前页的 SVG 列表（切页/重渲染后由 applyTab / 各 render 重新调用本函数刷新缓存），
-  // 避免每个 tick 都 querySelectorAll 全页扫描
-  animNodes = [...document.querySelectorAll("#p-"+curTab+" svg")];
-  // 尊重「减少动效」偏好：保持静态首帧，不启动定时器（同时省电）
-  if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  animTimer = setInterval(()=>{
-    if(document.hidden || scrollHold) return;   // 页面不可见或正在滑动时暂停，省电且不与滚动抢主线程
-    animPh = (animPh+1)%3;
-    animNodes.forEach(s=>{
-      [0,1,2].forEach(k=>{ const g=s.querySelector(".f"+k); if(g) g.style.display = k===animPh?"":"none"; });
-    });
-  }, 700);
-}
+// 动作图动画已全部交给 CSS（opacity 关键帧），主线程不再有定时器，
+// 滚动时无需暂停/恢复逻辑；旧实现的 startAnim()/scrollHold 已移除。
 
 // ---------- 内置动作库（custom:false 不可删，只能改副本） ----------
 function seedExercises(){
@@ -497,6 +544,7 @@ let DB = loadDB() || { v:1, schemaVersion:6, days:{},
   if(typeof DB.settings.seenIntro !== "boolean") DB.settings.seenIntro = false;      // 首次进入的一次性提示
   if(typeof DB.settings.hmOpen !== "boolean") DB.settings.hmOpen = false;            // 热力图展开态（默认收起为一行摘要）
   if(typeof DB.settings.showStats !== "boolean") DB.settings.showStats = false;      // 统计看板（默认隐藏）
+  if(!["top","bottom"].includes(DB.settings.navPos)) DB.settings.navPos = "bottom";  // 导航栏位置（默认底部，贴合原生 App）
   if(typeof DB.settings.age !== "number") DB.settings.age = 25;                      // 年龄（用于 BMR 计算）
   if(!["male","female","none"].includes(DB.settings.sex)) DB.settings.sex = "none";  // 性别；none = 不透露
   if(typeof DB.settings.targetWeight !== "number") DB.settings.targetWeight = DB.settings.weight || 60;   // 目标体重
@@ -582,12 +630,18 @@ function focusDlg(dlg, target){
     if(el && el.focus) el.focus({ preventScroll:true });
   }catch(_){}
 }
+// 安全开弹窗：已在打开状态时先关再开，避免 showModal 抛 InvalidStateError
+// （例如 AI 定制弹窗里再触发一次提示/预览）
+function showModalSafe(dlg){
+  try{ if(dlg.open) dlg.close(); }catch(_){}
+  dlg.showModal();
+}
 function openDlg(title, html, onApply, onCancel, applyLabel){
   const dlg = document.getElementById("dlg");
   dlg.onapply = onApply || null;
   dlg.oncancel = onCancel || null;
   dlg.innerHTML = dlgInner(title, html, applyLabel);
-  dlg.showModal();
+  showModalSafe(dlg);
   focusDlg(dlg, dlg.querySelector("input, select, textarea") || ".acc");   // 表单聚焦第一个输入控件，无则聚焦主操作
 }
 function dlgInner(title, html, applyLabel){
@@ -601,7 +655,7 @@ function okDlg(title, html, okLabel){
   dlg.onapply = null; dlg.oncancel = null;
   dlg.innerHTML = `<h3>${esc(title)}</h3>${html}
     <div class="dbtns"><button class="btn acc" onclick="closeDlg(true)">${esc(okLabel||"知道了")}</button></div>`;
-  dlg.showModal();
+  showModalSafe(dlg);
   focusDlg(dlg, ".acc");
 }
 function refreshDlg(title, html){
@@ -627,20 +681,22 @@ function askDlg(title, msg, onOk, okLabel, danger){
   dlg.innerHTML = `<h3>${esc(title)}</h3><div class="meta" style="line-height:1.7">${esc(String(msg??'')).replace(/\n/g,"<br>")}</div>
     <div class="dbtns"><button class="btn" onclick="closeDlg(false)">取消</button>
     <button class="${okCls}" onclick="closeDlg(true)">${esc(okLabel||"确认")}</button></div>`;
-  dlg.showModal();
+  showModalSafe(dlg);
   focusDlg(dlg, danger ? ".dbtns .btn" : ".acc");
 }
 
 // ---------- 组件：轮播同步（索引按单卡宽度取整，末页可达） ----------
+// 单独抽出：重绘后需要立即同步一次，不能只依赖 scroll 事件（设 scrollLeft 的时机可能在绑定监听之前）
+function syncDots(strip, dots){
+  if(!strip || !dots || !dots.children || !dots.children.length) return;
+  const first = strip.children && strip.children[0];
+  const sw = (first && first.offsetWidth) || strip.clientWidth || 1;
+  const idx = Math.max(0, Math.min(dots.children.length-1, Math.round(strip.scrollLeft / sw)));
+  [...dots.children].forEach((d,k)=>d.classList.toggle("on", k===idx));
+}
 function bindCarousel(strip, dots){
   strip.onscroll = (()=>{ let t; return ()=>{
-    scrollHold = true;   // 滚动中暂停 SVG 动画，避免与触摸滚动抢主线程
-    clearTimeout(t); t=setTimeout(()=>{
-      scrollHold = false;
-      const sw = strip.children[0].offsetWidth || 1;
-      const idx = Math.max(0, Math.min(dots.children.length-1, Math.round(strip.scrollLeft / sw)));
-      [...dots.children].forEach((d,k)=>d.classList.toggle("on", k===idx));
-    },120);
+    clearTimeout(t); t=setTimeout(()=>syncDots(strip, dots), 120);
   }; })();
 }
 
@@ -671,23 +727,32 @@ function renderToday(){
         ${rec.ex.length ? rec.ex.map((x,i)=>{
           const e = exById(x.id);
           return e ? exRow(e, x.done, true, `toggleEx(${i}, this)`) : "";
-        }).join("") : '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">今天没有安排动作，可在 设置 → 计划管理 中添加</div>'}
+        }).join("") : '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">今天没有安排动作，可在 设置 → 方案管理 中添加</div>'}
       </div>
       <div class="card" style="margin-top:12px">
-        <h2>${esc(MP.label)}<small><span id="meal-cnt">${md}/${MM.length} 餐</span> · 每天 ≈${T.kcal} 千卡${T.dir && T.dir !== "维持" ? "（" + T.dir + "）" : ""}</small></h2>
+        <h2>${esc(MP.label)}<small><span id="meal-cnt">${md}/${MM.length} 餐</span></h2>
+        <div class="meta">每天 ≈${T.kcal} 千卡${T.dir && T.dir !== "维持" ? " · " + T.dir : ""}</div>
         <div class="bar"><b id="meal-bar" style="width:${MM.length?md/MM.length*100:0}%"></b></div>
-        <div style="margin-top:4px">
-          ${MM.map((m,i)=>`
-            <div class="mealblk">
-              <div class="meal ${rec.meals[i]?"done":""}" onclick="toggleMeal(${i}, this)">
-                <h3>${esc(m.n)}</h3><span class="p">${esc(m.p)} · ${esc(m.cost)}</span><div class="ck">✓</div>
-              </div>
-              <details class="menu" name="today-menu"><summary>菜单</summary>
-                <table><tr><th>食物</th><th>分量</th><th>蛋白</th></tr>
-                ${m.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(SC.portion(r[1]))}</td><td><span class="tag">${esc(SC.protein(r[2], r[1]))}</span></td></tr>`).join("")}</table>
-              </details>
-            </div>`).join("")}
-        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        ${MM.map((m,i)=>`
+          <div class="mealblk">
+            <div class="meal ${rec.meals[i]?"done":""}" onclick="toggleMeal(${i}, this)">
+              <h3>${esc(m.n)}</h3><span class="p">${esc(m.p)} · ${esc(m.cost)}</span><div class="ck">✓</div>
+            </div>
+            <details class="menu" name="today-menu"><summary>菜单</summary>
+              <table><tr><th>食物</th><th>分量</th><th>蛋白</th></tr>
+              ${m.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(SC.portion(r[1]))}</td><td><span class="tag">${esc(SC.protein(r[2], r[1]))}</span></td></tr>`).join("")}</table>
+            </details>
+          </div>`).join("")}
+      </div>
+      <div class="card" style="margin-top:12px">
+        <details class="menu" style="border:none;margin:0">
+          <summary style="font-size:13px">负重选择 / 进阶路线 / 恢复要点</summary>
+          <p class="meta"><b style="color:var(--ink)">增肌原理</b>：选择能标准完成目标次数、最后 2-3 次接近力竭的重量；下放 3 秒慢速离心 + 组间休息 30-45 秒 + 单侧训练。<br>
+          <b style="color:var(--ink)">进阶</b>：第 1-2 周强度减半；第 3-4 周每组 +2~5 次；第 5 周起仍轻松就加重量。<br>
+          <b style="color:var(--ink)">恢复</b>：酸痛 2-3 天正常；睡眠 7.5h+；水 2000ml+；体重每周 +0.2~0.5kg。</p>
+        </details>
       </div>
     </div>`;
 }
@@ -701,7 +766,7 @@ function toggleEx(i, el){
   const cnt = document.getElementById("ex-cnt"), bar = document.getElementById("ex-bar");
   if(cnt) cnt.textContent = `${done}/${total} 动作`;
   if(bar) bar.style.width = (total?done/total*100:0) + "%";
-  updateHeatmapToday(); startAnim();
+  updateHeatmapToday();
 }
 
 // ---------- 饮食 ----------
@@ -772,26 +837,25 @@ function meals(){ return mealsPlan().meals; }
 // 重绘前捕获菜单开合状态（修复：勾选打卡触发重绘后菜单开合错乱）
 function dietMenuState(){
   const st = {};
-  document.querySelectorAll("#p-diet details.menu[data-k]").forEach(d=>{ st[d.dataset.k] = d.open; });
+  document.querySelectorAll("#st-plan details.menu[data-k]").forEach(d=>{ st[d.dataset.k] = d.open; });
   return st;
 }
-function renderDiet(){
+// 饮食方案内容（作为计划页轮播的第 1 页）
+function dietHtml(){
   const plan = mealsPlan();
   const M = plan.meals;
-  const W = DB.settings.weight;
   const T = dietTargets(), SC = dietScaler();
-  const target = `每天 ≈${T.kcal} 千卡 · 蛋白 ${T.pro}g（${T.method==="bmr" ? "BMR/TDEE" + (T.dir && T.dir !== "维持" ? " · " + T.dir : "") : W+"kg×"+T.k}${T.note?" "+T.note:""}）`;
+  // 头卡结构与训练日头卡保持一致（h2 + small ｜ meta 一行），两页高度才会齐平
+  const target = `每天 ≈${T.kcal} 千卡 · 蛋白 ${T.pro}g${T.dir && T.dir !== "维持" ? " · " + T.dir : ""}`;
   const st = dietMenuState();
   // 互斥分组：餐间菜单一组、采购/交换一组（原生 name 属性）；首次渲染默认仅第一餐展开
   const open = (k, dflt) => st[k] === undefined ? (dflt ? "open" : "") : (st[k] ? "open" : "");
-  document.getElementById("p-diet").innerHTML = `
-    <div class="p-head">
-      <div class="card" style="margin-bottom:12px">
-        <h2>${esc(plan.label)}<small>${target}</small></h2>
-      </div>
-    </div>
-    <div class="p-list">
+  return `
     <div class="card">
+      <h2>${esc(plan.label)}<small>${M.length} 餐</small></h2>
+      <div class="meta">${target}</div>
+    </div>
+    <div class="card" style="margin-top:12px">
       ${M.map((m,i)=>`
         <div class="mealblk">
           <div class="meal" style="cursor:default">
@@ -815,7 +879,6 @@ function renderDiet(){
         <tr><td>豆腐（北豆腐）</td><td>300g</td><td>¥4.5</td></tr>
         <tr><td>纯牛奶</td><td>550ml</td><td>¥4</td></tr></table>
       </details>
-    </div>
     </div>`;
 }
 function toggleMeal(i, el){
@@ -830,26 +893,35 @@ function toggleMeal(i, el){
   updateHeatmapToday();
 }
 
-// ---------- 周计划（CSS 轮播，只读，显示当前计划） ----------
-function renderWeek(){
-  const strip = document.getElementById("st-week"), dots = document.getElementById("dt-week");
-  strip.innerHTML = ""; dots.innerHTML = "";
+// ---------- 计划页 = 一个横向轮播：第 1 页饮食方案，第 2-8 页周一到周日 ----------
+// 不再拆「训练 / 饮食」两个子视图 —— 拆了之后两套 dots/滚动位置容易不同步，还多一层切换
+function renderPlan(){
+  const strip = document.getElementById("st-plan"), dots = document.getElementById("dt-plan");
+  if(!strip || !dots) return;
+  const prevLeft = strip.scrollLeft;   // 数据变化重绘时保住当前页
   const plan = activePlan();
+  const slides = [`<div class="slide">${dietHtml()}</div>`];
   plan.days.forEach((day,i)=>{
-    const col = document.createElement("div");
-    col.className = "slide";
-    col.innerHTML = `<div class="card"${i===dayIdxOf(today())?' style="border-left:3px solid var(--accent)"':""}>
-      <h2>周${"一二三四五六日"[i]} · ${esc(day.title)}${i===dayIdxOf(today())?' <span style="color:var(--accent);font-size:10.5px">← 今天</span>':""}</h2>
-      <div class="meta">${METAS[day.title] || "自定义训练日"}</div>
-      ${day.exIds.map(id=>{ const e=exById(id); return e?exRow(e, false, false, ""):""; }).join("") || '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">休息</div>'}
-    </div>`;
-    strip.appendChild(col);
-    dots.insertAdjacentHTML("beforeend", `<i${i===0?' class="on"':''}></i>`);
+    const isToday = i === dayIdxOf(today());
+    slides.push(`<div class="slide">
+      <div class="card"${isToday?' style="border-left:3px solid var(--accent)"':""}>
+        <h2>周${"一二三四五六日"[i]} · ${esc(day.title)}${isToday?' <span style="color:var(--accent);font-size:10.5px">← 今天</span>':""}</h2>
+        <div class="meta">${METAS[day.title] || "自定义训练日"}</div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        ${day.exIds.map(id=>{ const e=exById(id); return e?exRow(e, false, false, ""):""; }).join("") || '<div class="hint" style="font-size:11px;color:var(--mut);padding:10px 0">休息</div>'}
+      </div>
+    </div>`);
   });
-  strip.scrollLeft = 0;
+  strip.innerHTML = slides.join("");
+  dots.innerHTML = slides.map(()=>"<i></i>").join("");
   bindCarousel(strip, dots);
-  startAnim();
+  strip.scrollLeft = prevLeft;
+  syncDots(strip, dots);   // 立即同步一次：否则重绘后 dots 会停在第一个，和实际页面对不上
 }
+// 数据变化的各修改点沿用旧函数名，语义都是「重绘计划页」
+function renderWeek(){ renderPlan(); }
+function renderDiet(){ renderPlan(); }
 
 // ---------- 库：内置动作只读展示 + 自定义动作轮播（仅文本定制，图形取内置库） ----------
 let libPart = "全部";
@@ -865,7 +937,7 @@ function renderLib(){
       <div class="card" style="margin-bottom:12px">
         <h2>动作库<small>内置 ${builtins.length} 个 · 自定义 ${customs.length} 个</small></h2>
         <div class="chips" style="margin-top:8px">
-          ${["全部",...parts].map(p=>`<span class="chip" style="cursor:pointer;${libPart===p?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setLibPart('${p}')">${p}</span>`).join("")}
+          ${["全部",...parts].map(p=>`<button type="button" class="chip" style="${libPart===p?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setLibPart('${p}')">${p}</button>`).join("")}
         </div>
         <div style="margin-top:10px"><button class="btn" onclick="newEx()">＋ 新增自定义动作</button></div>
       </div>
@@ -889,13 +961,12 @@ function renderLib(){
               <div class="pts-line">${esc(x.part)} · ${esc(x.equip)} ｜ ${esc(x.points)}</div></div>
             <div style="display:flex;gap:8px">
               <button class="btn sm" onclick="editEx('${id}')">编辑</button>
-              <button class="btn sm" onclick="delEx('${id}')">删除</button>
+              <button class="btn sm danger" onclick="delEx('${id}')">删除</button>
             </div>
           </div>`).join("")
         : '<div class="meta" style="padding:8px 0">当前筛选下没有自定义动作，点上方「＋ 新增」创建。</div>'}
       </div>
     </div>`;
-  startAnim();
 }
 function setLibPart(p){ libPart = p; renderLib(); }
 function exForm(id, e){
@@ -934,7 +1005,8 @@ function delEx(id){
   if(!DB.exercises[id] || !DB.exercises[id].custom) return;
   const used = Object.values(DB.plans).flatMap(p=>p.days).filter(d=>d.exIds.includes(id));
   if(used.length){ infoDlg("该动作被 "+used.length+" 个训练日引用，请先在设置的计划编辑器中移除"); return; }
-  askDlg("删除自定义动作", "将删除「" + esc(DB.exercises[id].name) + "」，此操作不可恢复。", () => {
+  // 注意：askDlg 内部会对 msg 做 esc()，这里必须传原文，否则名称里的 & < > 会被二次转义
+  askDlg("删除自定义动作", "将删除「" + DB.exercises[id].name + "」，此操作不可恢复。", () => {
     delete DB.exercises[id]; save(); renderLib();
   }, "删除", true);
 }
@@ -943,6 +1015,7 @@ function delEx(id){
 function renderSet(){
   const s = DB.settings, bmi = s.weight/((s.height/100)**2);
   const hmOn = s.showHeatmap !== false;
+  const navPos = s.navPos === "top" ? "top" : "bottom";
   const dt = dietTargets();
   const tw = +s.targetWeight || s.weight;
   const hasTgt = Math.abs(tw - s.weight) >= 0.05;
@@ -984,62 +1057,67 @@ function renderSet(){
       ${warnLine ? `<p class="meta" style="margin-top:6px;color:#a33">${warnLine}</p>` : ""}
     </div>
     <div class="card" style="margin-bottom:12px">
-      <h2>计划管理</h2>
+      <h2>方案管理</h2>
+      <p class="meta" style="margin:8px 0 2px">训练计划</p>
       ${Object.entries(DB.plans).map(([pid,p])=>`
         <div style="padding:10px 0;border-bottom:1px solid var(--line)">
           <div style="display:flex;align-items:center;gap:8px">
             <b style="flex:1;font-size:13px">${esc(p.name)}</b>
             ${pid===DB.activePlanId?'<button class="btn sm" disabled style="cursor:default;border-color:var(--accent);color:var(--accent);background:var(--accent-soft)">当前</button>':`<button class="btn sm" onclick="usePlan('${pid}')">启用</button>`}
             <button class="btn sm" onclick="editPlan('${pid}')">编辑</button>
-            ${Object.keys(DB.plans).length>1?`<button class="btn sm" onclick="delPlan('${pid}')">删除</button>`:""}
+            ${Object.keys(DB.plans).length>1?`<button class="btn sm danger" onclick="delPlan('${pid}')">删除</button>`:""}
           </div>
         </div>`).join("")}
       <div style="margin-top:10px"><button class="btn" onclick="newPlan()">＋ 新建计划</button></div>
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <h2>饮食方案管理</h2>
+      <p class="meta" style="margin:12px 0 2px;border-top:1px solid var(--line);padding-top:10px">饮食方案</p>
       ${Object.entries(DB.meals).map(([gid,p])=>`
         <div style="padding:10px 0;border-bottom:1px solid var(--line)">
           <div style="display:flex;align-items:center;gap:8px">
             <b style="flex:1;font-size:13px">${esc(p.label)}</b>
             ${gid===s.goal?'<button class="btn sm" disabled style="cursor:default;border-color:var(--accent);color:var(--accent);background:var(--accent-soft)">当前</button>':`<button class="btn sm" onclick="setGoal('${gid}')">启用</button>`}
-            ${Object.keys(DB.meals).length>1?`<button class="btn sm" onclick="delMeal('${gid}')">删除</button>`:""}
+            ${Object.keys(DB.meals).length>1?`<button class="btn sm danger" onclick="delMeal('${gid}')">删除</button>`:""}
           </div>
           <div style="font-size:11px;color:var(--mut);margin-top:2px">≈${p.kcal} 千卡/kg · 蛋白 ${p.pro}g/kg${p.note?" · "+esc(p.note):""} · ${p.meals.length} 餐 · ${mealDirOf(p)}</div>
         </div>`).join("")}
       <p class="meta" style="margin-top:8px">每天 ≈${dt.kcal} 千卡 · 蛋白 ${dt.pro}g/天</p>
+      <button class="btn primary" style="display:block;width:100%;margin-top:12px;padding:11px 12px;font-size:13px" onclick="openAiDlg()">AI 定制计划与饮食</button>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <h2>热力图</h2>
-      <p class="meta" style="margin:8px 0 4px">首页显示</p>
+      <h2>界面</h2>
+      <p class="meta" style="margin:8px 0 4px">导航栏位置</p>
+      <div class="frow" style="margin-top:0">
+        ${[["bottom","底部"],["top","顶部"]].map(([v,l])=>
+          `<button type="button" class="btn" style="flex:1;${navPos===v?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setNavPos('${v}')">${l}</button>`).join("")}
+      </div>
+      <p class="meta" style="margin:10px 0 4px">首页热力图</p>
       <div class="frow" style="margin-top:0">
         ${[[true,"显示"],[false,"隐藏"]].map(([v,l])=>
-          `<b class="btn" style="flex:1;text-align:center;${hmOn===v?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setHeatmap(${v})">${l}</b>`).join("")}
+          `<button type="button" class="btn" style="flex:1;${hmOn===v?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setHeatmap(${v})">${l}</button>`).join("")}
       </div>
-      <p class="meta" style="margin:10px 0 4px">时间范围</p>
+      <p class="meta" style="margin:10px 0 4px">热力图范围</p>
       <div class="frow" style="margin-top:0">
         ${[[13,"近3个月"],[26,"近6个月"],[52,"近1年"]].map(([w,l])=>
-          `<b class="btn" style="flex:1;text-align:center;${s.hmWeeks===w?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setRange(${w})">${l}</b>`).join("")}
+          `<button type="button" class="btn" style="flex:1;${s.hmWeeks===w?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setRange(${w})">${l}</button>`).join("")}
       </div>
       <p class="meta" style="margin:10px 0 4px">统计看板</p>
       <div class="frow" style="margin-top:0">
         ${[[true,"显示"],[false,"隐藏"]].map(([v,l])=>
-          `<b class="btn" style="flex:1;text-align:center;${s.showStats===v?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setStats(${v})">${l}</b>`).join("")}
+          `<button type="button" class="btn" style="flex:1;${s.showStats===v?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" onclick="setStats(${v})">${l}</button>`).join("")}
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <h2>添加到桌面</h2>
+      <h2>安装</h2>
       <p class="meta" style="margin:6px 0 8px">${installHint()}</p>
       <button class="btn" onclick="installApp()">添加到桌面</button>
-    </div>
-    <!-- 三端安装包尚未发布，暂时隐藏；上线后去掉下方的 hidden 即可恢复 -->
-    <div class="card" style="margin-bottom:12px" hidden>
-      <h2>下载安装<small>v${APP_VERSION}</small></h2>
-      <div class="frow" style="margin-top:8px">
-        ${[["android","Android"],["ios","iOS"],["harmony","鸿蒙"]].map(([k,l])=>{
-          const cur = platformOf() === k;
-          return `<a class="btn" style="flex:1;text-align:center;text-decoration:none;${cur?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" target="_blank" rel="noopener noreferrer" href="${DL[k]}">${l}</a>`;
-        }).join("")}
+      <!-- 三端安装包尚未发布，暂时隐藏；上线后去掉下方的 hidden 即可恢复 -->
+      <div hidden style="margin-top:10px">
+        <p class="meta" style="margin-bottom:6px">安装包</p>
+        <div class="frow" style="margin-top:0">
+          ${[["android","Android"],["ios","iOS"],["harmony","鸿蒙"]].map(([k,l])=>{
+            const cur = platformOf() === k;
+            return `<a class="btn" style="flex:1;text-align:center;text-decoration:none;${cur?"border-color:var(--accent);color:var(--accent);background:var(--accent-soft)":""}" target="_blank" rel="noopener noreferrer" href="${DL[k]}">${l}</a>`;
+          }).join("")}
+        </div>
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
@@ -1047,16 +1125,17 @@ function renderSet(){
       <p class="meta" style="margin-bottom:8px">数据保存在本机浏览器，换设备前请导出备份；导入仅接受本站导出的备份文件。</p>
       <button class="btn" onclick="exportData()">导出 JSON</button>
       <button class="btn" onclick="document.getElementById('imp').click()">导入 JSON</button>
-      <button class="btn" style="border-color:#a33;color:#a33" onclick="resetData()">重置数据</button>
+      <button class="btn danger" onclick="resetData()">重置数据</button>
       <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(event)">
     </div>
-    <div class="card">
-      <details class="menu" open style="border:none;margin:0">
-        <summary style="font-size:13px">负重选择 / 进阶路线 / 恢复要点</summary>
-        <p class="meta"><b style="color:var(--ink)">增肌原理</b>：选择能标准完成目标次数、最后 2-3 次接近力竭的重量；下放 3 秒慢速离心 + 组间休息 30-45 秒 + 单侧训练。<br>
-        <b style="color:var(--ink)">进阶</b>：第 1-2 周强度减半；第 3-4 周每组 +2~5 次；第 5 周起仍轻松就加重量。<br>
-        <b style="color:var(--ink)">恢复</b>：酸痛 2-3 天正常；睡眠 7.5h+；水 2000ml+；体重每周 +0.2~0.5kg。</p>
-      </details>
+    <div class="card" style="margin-top:12px">
+      <h2>关于</h2>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <a class="btn sm" style="text-decoration:none" href="/privacy">隐私政策</a>
+        <a class="btn sm" style="text-decoration:none" target="_blank" rel="noopener noreferrer" href="https://github.com/XtrueT/HYBH">GitHub</a>
+      </div>
+      <p class="meta" style="margin-top:8px">版本 ${APP_VERSION} · 数据仅保存在本机浏览器</p>
+      <p class="meta">本工具仅作健康生活参考，不构成医疗建议。</p>
     </div>`;
   document.getElementById("hdr").textContent = (()=>{
     const tw2 = +s.targetWeight || s.weight;
@@ -1114,7 +1193,7 @@ function delMeal(gid){
   const keys = Object.keys(DB.meals);
   if(keys.length <= 1){ infoDlg("至少保留一个饮食方案"); return; }
   const p = DB.meals[gid];
-  askDlg("删除饮食方案", `将删除「${esc(p.label)}」。\n此操作不可恢复（AI 定制包可重新导入）。`, () => {
+  askDlg("删除饮食方案", `将删除「${p.label}」。\n此操作不可恢复（AI 定制包可重新导入）。`, () => {
     delete DB.meals[gid];
     save(); renderSet(); renderDiet();
   }, "删除", true);
@@ -1140,7 +1219,7 @@ function usePlan(pid){
   const doUse = () => {
     DB.activePlanId = pid;
     save(); planDlgPid = null;
-    renderSet(); renderToday(); renderWeek(); updateHeatmapToday(); startAnim();
+    renderSet(); renderToday(); renderWeek(); updateHeatmapToday();
   };
   if(pid === DB.activePlanId) return;
   // 今天已有打卡时先确认（应用内 dialog）：切换会按新计划重建今天的动作列表（同名动作保留打卡状态，其余会消失）
@@ -1175,9 +1254,9 @@ function planEditor(pid, p){
     </select></label></div>
     ${p.days.map((day,di)=>`
       <div style="margin-top:10px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <b style="font-size:12px">周${"一二三四五六日"[di]}</b>
-          <input value="${esc(day.title)}" style="flex:1;padding:4px 6px;border:1px solid var(--line);font-size:12px"
+        <div style="display:flex;align-items:center;gap:8px">
+          <b style="font-size:13px;flex-shrink:0">周${"一二三四五六日"[di]}</b>
+          <input value="${esc(day.title)}" style="flex:1;min-width:0;padding:9px;border:1px solid var(--line);font-size:13px;background:var(--card);color:var(--ink);font-family:inherit"
             onchange="renameDay('${pid}',${di},this.value)">
         </div>
         <div style="margin-top:6px">
@@ -1186,14 +1265,14 @@ function planEditor(pid, p){
             return `<div class="exitem">
               <span class="idx">${i+1}</span><span class="nm">${e?esc(e.name):"?"}</span>
               <span class="ops">
-                <span onclick="moveEx('${pid}',${di},${i},-1)">↑</span>
-                <span onclick="moveEx('${pid}',${di},${i},1)">↓</span>
-                <span class="del" onclick="removeEx('${pid}',${di},${i})">✕</span>
+                <button type="button" aria-label="上移" onclick="moveEx('${pid}',${di},${i},-1)">↑</button>
+                <button type="button" aria-label="下移" onclick="moveEx('${pid}',${di},${i},1)">↓</button>
+                <button type="button" class="del" aria-label="删除" onclick="removeEx('${pid}',${di},${i})">✕</button>
               </span>
             </div>`;
           }).join("") || '<div class="meta">未安排动作</div>'}
         </div>
-        <select class="btn sm" style="margin-top:6px;max-width:100%" onchange="addEx('${pid}',${di},this.value);this.selectedIndex=0">
+        <select class="btn" style="margin-top:8px;max-width:100%" onchange="addEx('${pid}',${di},this.value);this.selectedIndex=0">
           <option value="">＋ 从动作库添加…</option>
           ${Object.entries(DB.exercises).map(([id,e])=>`<option value="${id}">${esc(e.name)}（${e.part}）</option>`).join("")}
         </select>
@@ -1268,12 +1347,23 @@ function planChanges(){
 }
 function setHmOpen(v){ DB.settings.hmOpen = !!v; save(); renderHeatmap(); }
 function setStats(on){ DB.settings.showStats = !!on; save(); renderHeatmap(); renderSet(); }
+// 导航栏位置：bottom = 底部 tab bar（默认，贴合原生 App 习惯）/ top = 顶部标签（原布局）
+// 只切 body 上的类，DOM 顺序与切页逻辑完全共用
+function applyNavPos(){
+  document.body.classList.toggle("nav-bottom", DB.settings.navPos !== "top");
+}
+function setNavPos(p){
+  DB.settings.navPos = p === "top" ? "top" : "bottom";
+  save(); applyNavPos(); renderSet();
+}
 
 function renderHeatmap(){
   if(DB.settings && DB.settings.showHeatmap === false) return;   // 首页热力图已隐藏则跳过渲染
   const hm = document.getElementById("hm");
   // —— 两态：收起为一行摘要（默认）/ 展开为完整热力图（可含统计看板）——
   const open = DB.settings.hmOpen === true;
+  const wrapEl = document.getElementById("hmwrap");
+  if(wrapEl) wrapEl.classList.toggle("open", open);   // 展开态让开关移到格子上方一行（见 CSS）
   hm.style.display = open ? "" : "none";
   const tg = document.getElementById("hmToggle");
   if(tg) tg.textContent = open ? "收起 ▴" : "展开 ▾";   // 开关常驻热力图卡右上角（主导航上方）
@@ -1445,7 +1535,8 @@ function sanitizeBackup(o){
       targetWeight:sT,
       goal:(o.settings && SAFE_KEY.test(o.settings.goal))?o.settings.goal:"muscle", hmWeeks:[13,26,52].includes(o.settings&&o.settings.hmWeeks)?o.settings.hmWeeks:13,
       showHeatmap:(o.settings&&o.settings.showHeatmap)!==false, seenIntro:(o.settings&&o.settings.seenIntro)===true,
-      hmOpen:(o.settings&&o.settings.hmOpen)===true, showStats:(o.settings&&o.settings.showStats)===true },
+      hmOpen:(o.settings&&o.settings.hmOpen)===true, showStats:(o.settings&&o.settings.showStats)===true,
+      navPos:(o.settings&&o.settings.navPos)==="top"?"top":"bottom" },
     activePlanId:(o.activePlanId && SAFE_KEY.test(o.activePlanId))?o.activePlanId:"" };
   Object.entries(o.exercises && typeof o.exercises==="object" ? o.exercises : {}).forEach(([k,e])=>{
     if(!e || typeof e!=="object") return;
@@ -1610,28 +1701,24 @@ function loadSkill(){
     .then(t=>{ SKILL_TEXT = t; return t; });
 }
 const SKILL_LOAD_FAIL = "无法加载 SKILL.md。\n请通过 http(s) 访问本页（file:// 下浏览器会拦截本地文件读取）；部署后由 Service Worker 提供离线缓存。";
-function renderAi(){
-  document.getElementById("p-ai").innerHTML = `
-    <div class="p-head">
-      <div class="card" style="margin-bottom:12px">
-        <h2>AI 定制计划<small>发给 AI → 回贴 JSON → 一键导入</small></h2>
-        <div class="meta">内置的计划与饮食方案是「通用示例」：饮食份量会随你的体重与目标自动缩放，但食物选择和训练编排是固定的，不一定贴合你的器械、口味和作息。想让方案真正对应你的情况，用下面的方式定制一份。</div>
-        <div class="meta" style="margin-top:6px">① 点「一键复制」把 SKILL 文本发给任意 AI（附上你的身高体重、目标、器材、伤病史）<br>② AI 会返回一份定制包 JSON，粘贴到下方完成导入</div>
-      </div>
+// AI 定制是一次性动作：改为设置页按钮打开的弹窗，不再占一个 tab
+function openAiDlg(){
+  const dlg = document.getElementById("dlg");
+  dlg.onapply = null; dlg.oncancel = null;
+  dlg.innerHTML = `
+    <h3>AI 定制</h3>
+    <div class="meta" style="line-height:1.7">内置方案是「通用示例」：份量随体重与目标缩放，但食物选择与训练编排固定。想让方案贴合你的器械、口味和作息：<br>① 复制 SKILL 发给任意 AI（附上身高体重、目标、器材）<br>② 把 AI 返回的定制包 JSON 粘贴到下方</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn" style="flex:1" onclick="copySkill(this)">复制 SKILL</button>
     </div>
-    <div class="p-list">
-    <div class="card">
-      <h2>第一步 · SKILL 契约<button class="btn sm" style="float:right" onclick="copySkill()">一键复制</button></h2>
-      <details class="menu"><summary>查看全文</summary>
-        <pre id="skill-pre" style="font-family:ui-monospace,monospace;font-size:10.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--ink);">加载中…</pre>
-      </details>
-    </div>
-    <div class="card">
-      <h2>第二步 · 粘贴 AI 返回的 JSON</h2>
-      <textarea id="pkg-box" placeholder='粘贴 AI 生成的定制包 JSON（应以 {"kind":"hybh-custom", ...} 开头）' style="display:block;width:100%;height:200px;resize:vertical;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;padding:6px;background:var(--card);color:var(--ink);border:1px solid var(--line);"></textarea>
-      <div style="margin-top:8px"><button class="btn" onclick="importPkgText()">导入定制包</button></div>
-    </div>
-    </div>`;
+    <details class="menu" style="margin-top:4px"><summary>查看 SKILL 全文</summary>
+      <pre id="skill-pre" style="font-family:ui-monospace,monospace;font-size:10.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--ink);max-height:200px;overflow:auto">加载中…</pre>
+    </details>
+    <textarea id="pkg-box" placeholder='粘贴 AI 生成的定制包 JSON（应以 {"kind":"hybh-custom", ...} 开头）' style="display:block;width:100%;height:130px;resize:vertical;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;padding:6px;margin-top:8px;background:var(--card);color:var(--ink);border:1px solid var(--line);"></textarea>
+    <div id="ai-err" class="meta" style="color:#a33;margin-top:6px" hidden></div>
+    <div class="dbtns"><button class="btn" onclick="closeDlg(false)">关闭</button>
+    <button class="btn acc" onclick="importPkgText()">导入</button></div>`;
+  showModalSafe(dlg);
   loadSkill().then(t=>{
     const pre = document.getElementById("skill-pre");
     if(pre) pre.textContent = t;              // textContent 天然安全，无需 esc()
@@ -1640,9 +1727,19 @@ function renderAi(){
     if(pre) pre.textContent = SKILL_LOAD_FAIL;
   });
 }
-function copySkill(){
+// 弹窗内错误提示：不替换弹窗内容，避免把用户粘贴到一半的 JSON 冲掉
+function aiErr(msg){
+  const el = document.getElementById("ai-err");
+  if(el){ el.textContent = msg; el.hidden = false; } else infoDlg(msg);
+}
+function copySkill(btn){
   loadSkill().then(text=>{
-    const ok = ()=>infoDlg("SKILL 已复制到剪贴板\n发给 AI 时附上你的需求即可");
+    const ok = ()=>{
+      if(!btn) return;
+      const o = btn.textContent;
+      btn.textContent = "已复制 ✓";
+      setTimeout(()=>{ btn.textContent = o; }, 1500);
+    };
     if(navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(text).then(ok).catch(()=>fallbackCopy(text, ok));
     }else{ fallbackCopy(text, ok); }
@@ -1657,12 +1754,13 @@ function fallbackCopy(text, ok){
 }
 function importPkgText(){
   const v = document.getElementById("pkg-box").value.trim();
-  if(!v){ infoDlg("请先粘贴 AI 返回的定制包 JSON"); return; }
+  if(!v){ aiErr("请先粘贴 AI 返回的定制包 JSON"); return; }
   let obj;
-  try{ obj = JSON.parse(v); }catch(_){ infoDlg("JSON 格式错误：请检查是否完整复制（从 { 到 } 全选）"); return; }
+  try{ obj = JSON.parse(v); }catch(_){ aiErr("JSON 格式错误：请检查是否完整复制（从 { 到 } 全选）"); return; }
   if(!obj || obj.kind !== "hybh-custom"){
-    infoDlg("这不是 AI 定制包（缺少 kind:\"hybh-custom\"）\n请让 AI 严格按 SKILL 中的数据契约重新生成"); return;
+    aiErr('这不是 AI 定制包（缺少 kind:"hybh-custom"），请让 AI 严格按 SKILL 重新生成'); return;
   }
+  closeDlg(false);          // 先关掉 AI 弹窗，再由导入预览弹窗接管
   applyCustomPackage(obj);
 }
 
@@ -1776,161 +1874,225 @@ function drawQR(ctx, x0, y0, sizePx, text, fg, bg){
     if(m[y][x]) ctx.fillRect(x0+off+x*q, y0+off+y*q, q, q);
 }
 // 分享卡
-function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+// 分享卡：海报（LOGO → 热力图 → 计划/饮食双列 → 二维码）。卡片一律直角，与 App 内 .card 一致
 function drawShareCard(){
-  const C = { bg:"#f2f3f2", card:"#ffffff", ink:"#1a1a1a", mut:"#8a8f8d", line:"#e4e6e4", accent:"#2f5d5a", soft:"#e8efee", g2:"#7fa39c", lut:["#e9ebe9","#b9c9c5","#7fa39c","#4a7a72","#2f5d5a"] };
-  const W = 750, PAD = 40, CELL = 18, GAP = 3;
+  const C = { bg:"#f2f3f2", card:"#ffffff", ink:"#1a1a1a", mut:"#8a8f8d",
+    accent:"#2f5d5a", soft:"#e8efee", lut:["#e9ebe9","#b9c9c5","#7fa39c","#4a7a72","#2f5d5a"] };
+  const W = 750, PAD = 36, GAPX = 20;
   const cv = document.createElement("canvas");
   const ctx = cv.getContext("2d");
+  const font = (s,w)=>`${w||400} ${s}px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif`;
   const d = today(), wd = dayIdxOf(d);
   const plan = activePlan(), rec = dayRec(dkey(d), wd);
-  const MP = mealsPlan(), MM = MP.meals, T = dietTargets();
+  const MP = mealsPlan(), MM = MP.meals;
   const exDone = rec.ex.filter(x=>x.done).length, exTotal = rec.ex.length;
   const mealDone = rec.meals.filter(Boolean).length;
-  const font = (s,w)=>`${w||400} ${s}px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif`;
-  const rr2 = (x,y,w,h,r)=>{ rr(ctx,x,y,w,h,r); ctx.fillStyle=C.card; ctx.fill(); };
-  const bar = (bx,by,bw,ratio)=>{ rr(ctx,bx,by,bw,10,5); ctx.fillStyle=C.soft; ctx.fill(); if(ratio>0){ rr(ctx,bx,by,bw*ratio,10,5); ctx.fillStyle=C.accent; ctx.fill(); } };
-  // 热力图列（与设置的热力图范围一致，默认近 3 月）
+  const todayTs = d.getTime();
+
+  // canvas 没有 ellipsis：按可用宽度逐字回退再加 …
+  const fit = (txt, maxW, f) => {
+    ctx.font = f;
+    const s = String(txt);
+    if(ctx.measureText(s).width <= maxW) return s;
+    let t = s;
+    while(t.length > 1 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+    return t + "…";
+  };
+  const card = (x,y,w,h)=>{ ctx.fillStyle = C.card; ctx.fillRect(x,y,w,h); };
+
+  // 热力图：按月分组，每行最多 6 个月（12 个月 → 6×2 两行，格子不会被压小）
   const months = {"13":3,"26":6,"52":12}[String(DB.settings.hmWeeks)] || 3;
   const nowM = d.getUTCMonth(), nowY = d.getUTCFullYear();
-  const monthCols = [];
+  const allCols = [];
   for(let mi = months-1; mi >= 0; mi--){
     let yy = nowY, mm = nowM - mi; while(mm < 0){ mm += 12; yy--; }
     const first = new Date(Date.UTC(yy, mm, 1));
     const dim = new Date(Date.UTC(yy, mm+1, 0)).getUTCDate();
     const off = (first.getUTCDay()+6)%7;
-    monthCols.push({ label:(mm+1)+"月", weeks:Math.ceil((off+dim)/7), dim, off, y0:yy, m0:mm });
+    allCols.push({ label:(mm+1)+"月", weeks:Math.ceil((off+dim)/7), dim, off, y0:yy, m0:mm });
   }
-  const hmColsW = monthCols.reduce((s,c)=>s + c.weeks*(CELL+GAP) + 14, 0);
-  const hmCardH = 96 + 7*(CELL+GAP) + 44;
-  const weekH = 7*72 + 96;
-  const dietH = 140 + MM.reduce((s,m)=>s + 50 + m.rows.length*44 + 16, 0);
-  const qrH = 300;
-  const H = 156 + 286 + hmCardH + 24 + weekH + 24 + dietH + 24 + qrH + 24 + 70;
+  const PER_ROW = 6, rowGroups = [];
+  for(let i = 0; i < allCols.length; i += PER_ROW) rowGroups.push(allCols.slice(i, i+PER_ROW));
+  const GAPH = 3, MGAP = 12;
+  const rowLayout = rowGroups.map(g=>{
+    const tw = g.reduce((s,c)=>s+c.weeks, 0);
+    let cell = Math.floor((W - PAD*2 - 40 - (g.length-1)*MGAP - tw*GAPH) / tw);
+    cell = Math.max(9, Math.min(18, cell));
+    return { cols:g, weeks:tw, cell, w: tw*(cell+GAPH) + (g.length-1)*MGAP };
+  });
+  const HM_ROWS_H = rowLayout.reduce((s,r)=> s + 7*(r.cell+GAPH) + 24, 0) + (rowLayout.length-1)*14;
+
+  // —— 布局常量：先算总高再画，避免卡片超出画布 ——
+  const TOP_H = 96, HM_H = 62 + HM_ROWS_H + 18, QR_H = 200, FOOT_H = 34;
+  const COL_TOP = TOP_H + 16 + HM_H + 16;
+  const COL_W = (W - PAD*2 - GAPX) / 2;
+  const CARD_PAD = 18, CARD_HEAD = 44;
+  const DAY_T = 28, EX_H = 26, DAY_GAP = 10;
+  const MEAL_T = 26, FOOD_H = 24, MEAL_GAP = 8;
+
+  const planRows = plan.days.reduce((s,day)=> s + DAY_T + (day.exIds||[]).filter(id=>exById(id)).length*EX_H + DAY_GAP, 0);
+  const dietRows = MM.reduce((s,m)=> s + MEAL_T + m.rows.length*FOOD_H + MEAL_GAP, 0);
+  const planH = CARD_PAD*2 + CARD_HEAD + planRows;
+  const dietH = CARD_PAD*2 + CARD_HEAD + dietRows;
+  const rightH = dietH + 16 + QR_H;          // 右列 = 饮食卡 + 二维码卡（二维码不再单独占一整行）
+  const COL_H = Math.max(planH, rightH);
+  const H = COL_TOP + COL_H + 16 + FOOT_H;
+
   cv.width = W; cv.height = H;
   ctx.fillStyle = C.bg; ctx.fillRect(0,0,W,H);
-  let y = 56;
-  // —— LOGO 头部 ——
-  ctx.fillStyle = C.accent; ctx.font = font(44,800); ctx.fillText("H.Y.B.H", PAD, y+42);
-  ctx.fillStyle = C.mut; ctx.font = font(22);
-  ctx.fillText("训练 · 饮食 · 坚持", PAD+216, y+24);
-  ctx.font = font(24);
-  ctx.textAlign = "right";
-  ctx.fillText(`${d.getUTCMonth()+1}月${d.getUTCDate()}日 · 周${"一二三四五六日"[wd]}`, W-PAD, y+24);
-  ctx.fillText(`${plan.name} · ${MP.label}`, W-PAD, y+56);
-  ctx.textAlign = "left";
-  y += 120;
-  const drawTitle = (t, right)=>{ ctx.fillStyle=C.ink; ctx.font=font(30,700); ctx.fillText(t, PAD+34, y+54); if(right!==undefined){ ctx.fillStyle=C.accent; ctx.font=font(24,700); ctx.textAlign="right"; ctx.fillText(right, W-PAD-34, y+54); ctx.textAlign="left"; } };
-  // —— 卡1 热力图 ——
-  rr2(PAD, y, W-PAD*2, hmCardH, 24);
-  drawTitle("近 3 月坚持记录", "每日完成度");
-  const hmTop = y + 88, hmLeft = PAD + 34;
-  let hx = hmLeft;
-  const todayTs = d.getTime();
-  for(const mc of monthCols){
-    for(let wcol = 0; wcol < mc.weeks; wcol++){
-      for(let rrow = 0; rrow < 7; rrow++){
-        const dayIdx = wcol*7 + rrow - mc.off;
-        if(dayIdx < 0 || dayIdx >= mc.dim) continue;
-        const date = new Date(Date.UTC(mc.y0, mc.m0, dayIdx+1));
-        if(date.getTime() > todayTs) continue;
-        const r = DB.days[dkey(date)];
-        ctx.fillStyle = C.lut[levelOf(r)];
-        ctx.fillRect(hx + wcol*(CELL+GAP), hmTop + rrow*(CELL+GAP), CELL, CELL);
+
+  // —— 顶部：只留 LOGO ——
+  ctx.fillStyle = C.accent; ctx.font = font(46,800);
+  ctx.fillText("H.Y.B.H", PAD, 64);
+
+  // —— 热力图 ——
+  const hmY = TOP_H + 16, hmW = W - PAD*2;
+  card(PAD, hmY, hmW, HM_H);
+  ctx.fillStyle = C.ink; ctx.font = font(25,700);
+  ctx.fillText(`近 ${months} 月坚持记录`, PAD+20, hmY+40);
+  ctx.fillStyle = C.accent; ctx.font = font(19,700); ctx.textAlign = "right";
+  ctx.fillText("每日完成度", PAD+hmW-20, hmY+40); ctx.textAlign = "left";
+
+  let rowY = hmY + 62;
+  for(const rl of rowLayout){
+    let rx = PAD + Math.max(20, (hmW - rl.w) / 2);
+    for(const mc of rl.cols){
+      for(let wcol = 0; wcol < mc.weeks; wcol++){
+        for(let rrow = 0; rrow < 7; rrow++){
+          const dayIdx = wcol*7 + rrow - mc.off;
+          if(dayIdx < 0 || dayIdx >= mc.dim) continue;
+          const date = new Date(Date.UTC(mc.y0, mc.m0, dayIdx+1));
+          if(date.getTime() > todayTs) continue;
+          ctx.fillStyle = C.lut[levelOf(DB.days[dkey(date)])];
+          ctx.fillRect(rx + wcol*(rl.cell+GAPH), rowY + rrow*(rl.cell+GAPH), rl.cell, rl.cell);
+        }
       }
+      ctx.fillStyle = C.mut; ctx.font = font(16);
+      ctx.fillText(mc.label, rx + mc.weeks*(rl.cell+GAPH)/2 - 12, rowY + 7*(rl.cell+GAPH) + 18);
+      rx += mc.weeks*(rl.cell+GAPH) + MGAP;
     }
-    ctx.fillStyle = C.mut; ctx.font = font(20);
-    ctx.fillText(mc.label, hx + mc.weeks*(CELL+GAP)/2 - 14, hmTop + 7*(CELL+GAP) + 10);
-    hx += mc.weeks*(CELL+GAP) + 14;
+    rowY += 7*(rl.cell+GAPH) + 24 + 14;
   }
-  y += hmCardH + 24;
-  // —— 卡2 周计划（原样） ——
-  rr2(PAD, y, W-PAD*2, weekH, 24);
-  drawTitle("本周计划", `${exDone}/${exTotal} 今日动作`);
-  let cy = y + 108;
+
+  // —— 左列：本周计划（每天列出动作 + 组次） ——
+  card(PAD, COL_TOP, COL_W, COL_H);
+  let cy = COL_TOP + CARD_PAD;
+  ctx.fillStyle = C.ink; ctx.font = font(24,700);
+  ctx.fillText("本周计划", PAD+18, cy+22);
+  ctx.fillStyle = C.mut; ctx.font = font(17); ctx.textAlign = "right";
+  ctx.fillText(`${exDone}/${exTotal} 今日动作`, PAD+COL_W-18, cy+22); ctx.textAlign = "left";
+  cy += CARD_HEAD;
   plan.days.forEach((day,i)=>{
-    const isToday = i===wd, done = i<wd;
-    if(isToday){ rr(ctx, PAD+20, cy-38, W-PAD*2-40, 56, 14); ctx.fillStyle = C.soft; ctx.fill(); }
-    ctx.fillStyle = isToday?C.accent:(done?C.mut:C.ink);
-    ctx.font = font(isToday?28:26, isToday?800:400);
-    ctx.fillText(`周${"一二三四五六日"[i]}`, PAD+40, cy);
-    ctx.font = font(26, done?400:600);
-    ctx.fillText(day.title, PAD+140, cy);
-    const meta = METAS[day.title] || "";
-    if(meta){ ctx.fillStyle = C.mut; ctx.font = font(19); ctx.textAlign="right"; const mt = meta.length>18 ? meta.slice(0,17)+"…" : meta; ctx.fillText(mt, W-PAD-40, cy); ctx.textAlign="left"; }
-    cy += 72;
-  });
-  y += weekH + 24;
-  // —— 卡3 饮食方案（原样：每餐 + 菜单表） ——
-  rr2(PAD, y, W-PAD*2, dietH, 24);
-  drawTitle(`饮食方案 · ${MP.label}`, `${mealDone}/${MM.length} 餐`);
-  ctx.fillStyle = C.mut; ctx.font = font(22);
-  ctx.fillText(`每天 ≈${T.kcal} 千卡 · 蛋白 ${T.pro}g/天`, PAD+34, y+92);
-  cy = y + 136;
-  MM.forEach(m=>{
-    ctx.fillStyle = C.accent; ctx.font = font(26,700); ctx.fillText(m.n, PAD+40, cy);
-    ctx.fillStyle = C.mut; ctx.font = font(21); ctx.textAlign = "right";
-    ctx.fillText(`${m.p} 蛋白 · ${m.cost}`, W-PAD-40, cy); ctx.textAlign = "left";
-    cy += 50;
-    const rows = m.rows.map(r=>[String(r[0]), String(r[1]), String(r[2])]);
-    const tw = W-PAD*2-80;
-    rows.forEach((r,ri)=>{
-      if(ri%2===0){ ctx.fillStyle = C.bg; ctx.fillRect(PAD+40, cy-24, tw, 40); }
-      ctx.fillStyle = C.ink; ctx.font = font(22); ctx.fillText(r[0], PAD+52, cy+4);
-      ctx.fillStyle = C.mut; ctx.font = font(21); ctx.textAlign = "right";
-      ctx.fillText(r[1], PAD+40+tw*0.62, cy+4);
-      ctx.fillText(r[2], PAD+40+tw-12, cy+4); ctx.textAlign = "left";
-      cy += 44;
+    const isToday = i === wd;
+    if(isToday){ ctx.fillStyle = C.soft; ctx.fillRect(PAD+10, cy-2, COL_W-20, DAY_T + (day.exIds||[]).length*EX_H + 4); }
+    ctx.fillStyle = isToday ? C.accent : C.ink;
+    ctx.font = font(20, isToday ? 700 : 600);
+    ctx.fillText(fit(`周${"一二三四五六日"[i]} · ${day.title}`, COL_W-36, font(20,isToday?700:600)), PAD+18, cy+20);
+    cy += DAY_T;
+    (day.exIds||[]).forEach(id=>{
+      const e = exById(id); if(!e) return;
+      ctx.fillStyle = C.ink; ctx.font = font(18);
+      ctx.fillText(fit(e.name, COL_W-152, font(18)), PAD+26, cy+17);
+      ctx.fillStyle = C.mut; ctx.font = font(17); ctx.textAlign = "right";
+      ctx.fillText(fit(e.sets, 124, font(17)), PAD+COL_W-18, cy+17); ctx.textAlign = "left";
+      cy += EX_H;
     });
-    cy += 16;
+    cy += DAY_GAP;
   });
-  y += dietH + 24;
-  // —— 卡4 二维码 + 链接 ——
-  rr2(PAD, y, W-PAD*2, qrH, 24);
+
+  // —— 右列：饮食方案（每餐 + 食物明细），高度按内容，不拉伸 ——
+  const RX = PAD + COL_W + GAPX;
+  card(RX, COL_TOP, COL_W, dietH);
+  let dy = COL_TOP + CARD_PAD;
+  ctx.fillStyle = C.ink; ctx.font = font(24,700);
+  ctx.fillText(fit(`饮食方案 · ${MP.label}`, COL_W-124, font(24,700)), RX+18, dy+22);
+  ctx.fillStyle = C.mut; ctx.font = font(17); ctx.textAlign = "right";
+  ctx.fillText(`${mealDone}/${MM.length} 餐`, RX+COL_W-18, dy+22); ctx.textAlign = "left";
+  dy += CARD_HEAD;
+  MM.forEach(m=>{
+    ctx.fillStyle = C.accent; ctx.font = font(19,700);
+    ctx.fillText(fit(m.n, COL_W-146, font(19,700)), RX+18, dy+17);
+    ctx.fillStyle = C.mut; ctx.font = font(17); ctx.textAlign = "right";
+    ctx.fillText(`${m.p} · ${m.cost}`, RX+COL_W-18, dy+17); ctx.textAlign = "left";
+    dy += MEAL_T;
+    m.rows.forEach(r=>{
+      ctx.fillStyle = C.ink; ctx.font = font(18);
+      ctx.fillText(fit(r[0], COL_W-130, font(18)), RX+26, dy+16);
+      ctx.fillStyle = C.mut; ctx.font = font(17); ctx.textAlign = "right";
+      ctx.fillText(fit(r[1], 100, font(17)), RX+COL_W-18, dy+16); ctx.textAlign = "left";
+      dy += FOOD_H;
+    });
+    dy += MEAL_GAP;
+  });
+
+  // —— 二维码（右列饮食卡下方，竖排居中） ——
+  const qrY = COL_TOP + dietH + 16;
+  card(RX, qrY, COL_W, QR_H);
   const url = (/^https/.test(location.protocol) ? location.href.split("#")[0] : "");
-  ctx.fillStyle = C.ink; ctx.font = font(30,700); ctx.fillText("扫码开始使用", PAD+34, y+70);
   if(url){
-    drawQR(ctx, W-PAD-236-34, y+50, 236, url, C.accent, C.card);
-    ctx.fillStyle = C.mut; ctx.font = font(22);
-    ctx.fillText("手机浏览器打开", PAD+34, y+130);
-    ctx.fillText("记录你的每一次训练与饮食", PAD+34, y+170);
-    ctx.fillStyle = C.accent; ctx.font = font(22,600);
-    ctx.fillText(url.replace(/^https?:\/\//,""), PAD+34, y+228);
+    drawQR(ctx, RX + (COL_W-120)/2, qrY+16, 120, url, C.accent, C.card);
+    ctx.textAlign = "center";
+    ctx.fillStyle = C.ink; ctx.font = font(20,700);
+    ctx.fillText("扫码开始使用", RX+COL_W/2, qrY+166);
+    ctx.fillStyle = C.accent; ctx.font = font(15);
+    ctx.fillText(url.replace(/^https?:\/\//,""), RX+COL_W/2, qrY+190);
+    ctx.textAlign = "left";
   } else {
-    ctx.fillStyle = C.accent; ctx.font = font(56,800);
-    ctx.fillText("H.Y.B.H", PAD+34, y+190);
-    ctx.fillStyle = C.mut; ctx.font = font(22);
-    ctx.fillText("记录你的每一次训练与饮食", PAD+34, y+240);
+    ctx.textAlign = "center";
+    ctx.fillStyle = C.ink; ctx.font = font(20,700);
+    ctx.fillText("H.Y.B.H", RX+COL_W/2, qrY+80);
+    ctx.fillStyle = C.mut; ctx.font = font(16);
+    ctx.fillText("记录你的每一次训练与饮食", RX+COL_W/2, qrY+112);
+    ctx.textAlign = "left";
   }
-  y += qrH;
-  ctx.fillStyle = C.mut; ctx.font = font(20);
-  ctx.textAlign = "center"; ctx.fillText("本工具仅作健康生活参考，不构成医疗建议", W/2, y+40); ctx.textAlign = "left";
+
+  // —— 页脚 ——
+  ctx.fillStyle = C.mut; ctx.font = font(18); ctx.textAlign = "center";
+  ctx.fillText("本工具仅作健康生活参考，不构成医疗建议", W/2, H-14); ctx.textAlign = "left";
   return cv;
 }
+// 分享图：先弹预览（可滚动看完整长图），确认后再走系统分享 / 下载
+let shareFile = null, shareUrl = null;
 function shareCard(){
   const cv = drawShareCard();
   cv.toBlob(blob=>{
     if(!blob){ infoDlg("分享图生成失败"); return; }
-    const file = new File([blob], "hybh-打卡分享.png", { type:"image/png" });
-    if(navigator.canShare && navigator.canShare({ files:[file] })){
-      navigator.share({ files:[file], title:"H.Y.B.H 打卡分享", text:"我的训练与饮食打卡 ↓" }).catch(()=>{});
-    } else {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = "hybh-打卡分享.png"; a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
-    }
+    if(shareUrl) URL.revokeObjectURL(shareUrl);   // 释放上一张，避免堆积
+    shareUrl = URL.createObjectURL(blob);
+    shareFile = new File([blob], "hybh-打卡分享.png", { type:"image/png" });
+    const canShare = !!(navigator.canShare && navigator.canShare({ files:[shareFile] }));
+    const dlg = document.getElementById("dlg");
+    dlg.onapply = null; dlg.oncancel = null;
+    dlg.innerHTML = `<h3>分享预览</h3>
+      <div class="share-pv"><img src="${shareUrl}" alt="打卡分享图"></div>
+      <div class="dbtns">
+        <button class="btn" onclick="closeDlg(false)">关闭</button>
+        <button class="btn acc" onclick="shareNow()">${canShare ? "分享" : "保存图片"}</button>
+      </div>`;
+    showModalSafe(dlg);
+    focusDlg(dlg, ".acc");
   }, "image/png");
+}
+function shareNow(){
+  if(!shareFile) return;
+  if(navigator.canShare && navigator.canShare({ files:[shareFile] })){
+    navigator.share({ files:[shareFile], title:"H.Y.B.H 打卡分享", text:"我的训练与饮食打卡 ↓" }).catch(()=>{});
+  } else {
+    const a = document.createElement("a");
+    a.href = shareUrl; a.download = "hybh-打卡分享.png"; a.click();
+    closeDlg(false);
+  }
 }
 
 // ---------- tab 切换 + 启动 ----------
 // 切换时惰性重渲染目标面板（保证打卡后各页计数新鲜；AI 页除外，避免清掉粘贴中的 JSON）
 // 同时把当前 tab 写进 location.hash，刷新 / 前进后退都能停在同一页
-const TAB_RENDER = { today:renderToday, diet:renderDiet, week:renderWeek, lib:renderLib, set:renderSet };
+const TAB_RENDER = { today:renderToday, plan:renderPlan, lib:renderLib, set:renderSet };
 const TAB_DONE = new Set();   // 已渲染过的面板：数据变化时由各修改点显式重渲染对应面板，切页不重建（轮播 6 页常驻，重复 innerHTML 重建是滑动卡顿主因）
 function renderTab(p){
   if(TAB_RENDER[p] && !TAB_DONE.has(p)){ TAB_RENDER[p](); TAB_DONE.add(p); }
 }
-const TAB_NAMES = ["today","diet","week","lib","set","ai"];
+const TAB_NAMES = ["today","plan","lib","set"];
 const tabFromHash = ()=>{
   const h = (typeof location !== "undefined" && location.hash ? location.hash : "").replace(/^#/,"");
   return TAB_NAMES.includes(h) ? h : "today";
@@ -1945,10 +2107,10 @@ function applyTab(p){   // 实际切页：导航高亮 + 轮播定位 + 懒渲�
     if(on) x.setAttribute?.("aria-current","page"); else x.removeAttribute?.("aria-current");
   });
   const m = document.getElementById("main");
-  const panel = document.getElementById("p-"+p);
-  if(m && panel) m.scrollTo({ left: panel.offsetLeft, behavior:"auto" });   // 轮播定位（面板常驻，不再切 display）
+  // 按索引 × 面板宽度定位：不能用 panel.offsetLeft —— 宽屏（>720px）时 body 居中留白会让
+  // offsetLeft 带上 body 的左偏移，导致点导航跳错页（手机上恰好为 0，所以只在桌面暴露）
+  if(m) m.scrollTo({ left: TAB_NAMES.indexOf(p) * (m.clientWidth || 1), behavior:"auto" });
   renderTab(p);
-  startAnim();   // 切页后按新页重建动画缓存（未重渲染时也要切到新页的 SVG）
 }
 function switchTab(p){  // 语义入口：写 hash（深链/前进后退），由 hashchange 统一 applyTab
   if(!TAB_NAMES.includes(p)) p = "today";
@@ -1965,10 +2127,8 @@ window.addEventListener("hashchange", ()=>switchTab(tabFromHash()));
 // 主导航轮播：滑动切换面板（scroll-snap），滚动停稳后同步导航与懒渲染（经 hashchange 单入口，避免双写）
 let tabSyncT = 0;
 document.getElementById("main").addEventListener("scroll", ()=>{
-  scrollHold = true;   // 滑动/惯性滚动中暂停 SVG 动画
   clearTimeout(tabSyncT);
   tabSyncT = setTimeout(()=>{
-    scrollHold = false;
     const m = document.getElementById("main");
     const idx = Math.max(0, Math.min(TAB_NAMES.length-1, Math.round(m.scrollLeft / (m.clientWidth || 1))));
     const p = TAB_NAMES[idx];
@@ -1980,7 +2140,7 @@ document.getElementById("main").addEventListener("scroll", ()=>{
     }
   }, 120);
 }, { passive:true });
-function renderAll(){ renderToday(); renderDiet(); renderWeek(); renderLib(); renderSet(); renderAi(); applyHeatmapVisibility(); startAnim(); TAB_NAMES.forEach(p=>TAB_DONE.add(p)); }
+function renderAll(){ renderToday(); renderPlan(); renderLib(); renderSet(); applyHeatmapVisibility(); TAB_NAMES.forEach(p=>TAB_DONE.add(p)); }
 
 // ---------- 安装引导（PWA 添加到桌面） ----------
 // 支持 beforeinstallprompt 的浏览器可一键安装；华为/鸿蒙等浏览器不提供，则降级为文字引导
@@ -2002,8 +2162,26 @@ function installApp(){
     infoDlg("当前浏览器没有提供自动安装。\n请在浏览器菜单中选择「添加到桌面」或「添加到主屏幕」。");
   }
 }
-if(typeof history !== "undefined" && "scrollRestoration" in history) history.scrollRestoration = "manual";   // 禁用浏览器滚动位置恢复（防止重载时盖过 hash 定位）
-applyTab(tabFromHash());   // 按 URL hash 定位（深链生效）；无 hash 默认「今日」
+if(typeof history !== "undefined" && "scrollRestoration" in history) history.scrollRestoration = "manual";   // 禁用浏览器滚动位置恢复
+applyNavPos();          // 先定导航栏位置（会改变 main 的可用高度），再定位当前面板
+if(isStandalone()) document.documentElement.classList.add("standalone");   // 已装到桌面：放开纵向回弹（见 CSS）
+// 原生 App 习惯：重开 / 刷新都回到「今日」。URL 里残留的 hash（例如上次停在 AI 页）不参与首屏定位，
+// 顺手清掉以免地址栏与当前页不一致。hashchange 监听保留 —— 浏览器前进/后退、点导航仍按 hash 切页。
+try{ if(location.hash) history.replaceState(null, "", location.pathname + location.search); }catch(_){}
+applyTab("today");
+
+// 键盘弹出时收起底部 tab bar（否则会被顶到键盘上方悬着）。只在触屏设备启用：
+// 桌面端点输入框不该让导航消失。
+(function(){
+  if(!window.matchMedia || !window.matchMedia("(pointer: coarse)").matches) return;
+  const isField = el => !!(el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName || ""));
+  document.addEventListener("focusin", e => { if(isField(e.target)) document.body.classList.add("kb-open"); });
+  document.addEventListener("focusout", e => {
+    if(!isField(e.target)) return;
+    // 焦点在输入控件之间跳转时先 focusout 再 focusin：延后一拍再判断，避免 tab bar 闪一下
+    setTimeout(()=>{ if(!isField(document.activeElement)) document.body.classList.remove("kb-open"); }, 0);
+  });
+})();
 
 // 无痕 / 隐私模式检测（思路参考 detectIncognito.js，不引第三方库）
 // · Firefox / Safari：隐私模式下 OPFS(navigator.storage.getDirectory) 会抛特定错误
@@ -2090,7 +2268,7 @@ function introNotice(){
   if(DB.settings.seenIntro) return;
   DB.settings.seenIntro = true; save();
   setTimeout(()=>{                       // 等首屏渲染完再弹
-    askDlg("欢迎使用 H.Y.B.H", "内置的计划与饮食方案是「通用示例」：饮食份量会随你的体重与目标自动缩放，但食物选择和训练编排是固定的。\n想贴合自己的情况？在「AI」页把 SKILL 发给任意 AI，回传的定制包会连同身高体重、目标一起写入，无需手动填写。", () => { location.hash = "#ai"; }, "去定制");
+    askDlg("欢迎使用 H.Y.B.H", "内置的计划与饮食方案是「通用示例」：饮食份量会随你的体重与目标自动缩放，但食物选择和训练编排是固定的。\n想贴合自己的情况？用「AI 定制」把 SKILL 发给任意 AI，回传的定制包会连同身高体重、目标一起写入，无需手动填写。", () => { openAiDlg(); }, "去定制");
   }, 300);
 }
 storageNotice();
