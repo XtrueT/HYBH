@@ -31,6 +31,9 @@
     --bg: #f2f3f2; --card: #ffffff; --ink: #1a1a1a; --mut: #8a8f8d; --line: #e4e6e4;
     --accent: #2f5d5a; --accent-soft: #e8efee;
     --g0: #e9ebe9; --g1: #b9c9c5; --g2: #7fa39c; --g3: #4a7a72; --g4: #2f5d5a;
+    /* 动效 token：高频操作（打卡/切页）一律 ≤240ms，超了会明显变拖 */
+    --ease: cubic-bezier(.2,.8,.3,1);
+    --dur: .16s; --dur-lg: .24s;
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { height:100%; }
@@ -73,7 +76,11 @@
 
   /* 热力图区固定在 header 下方（不随各页滚动），底部加一条分隔线，
      否则页面滚动时被裁切的卡片内容会紧贴摘要行，看起来像"浮"在一起 */
-  .hmwrap { padding:10px 16px 4px; position:relative; border-bottom:1px solid var(--line); }
+  /* 热力图区：收起态只留摘要行，展开时靠 max-height 过渡撑开（display 切换是瞬间的，
+     没有高度动画就会"跳"一下）。52px = 摘要行 26 + 上下 padding 14 + 边框 */
+  .hmwrap { padding:10px 16px 4px; position:relative; border-bottom:1px solid var(--line);
+    overflow:hidden; max-height:52px; transition:max-height var(--dur-lg) var(--ease); }
+  .hmwrap.open { max-height:640px; }
   #hmToggle { position:absolute; top:10px; right:14px; z-index:2; font-size:11px; font-style:normal;
     color:var(--accent); background:var(--card); border:1px solid var(--line); border-radius:10px;
     padding:4px 9px; cursor:pointer; }
@@ -105,13 +112,25 @@
     background:none; border:none; font-family:inherit; position:relative; }
   /* 选中态不加粗：字重变化会让文字宽度变、居中位置抖一下（点 tab 时"文字从左边闪到右边"就是这个） */
   nav button.on { color:var(--accent); }
-  /* 选中指示线：与底部模式统一为 18×2px 短条（原来顶部是整格宽的下划线，两种模式宽度差很多） */
-  nav button.on::after { content:""; position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
-    width:18px; height:2px; background:var(--accent); }
+  /* 选中指示线：与底部模式统一为 18×2px 短条。
+     常态透明常驻，选中时才淡入 + 从 0.4 展开到 1 —— 直接给 .on 加伪元素不会有过渡（新元素） */
+  nav button::after { content:""; position:absolute; bottom:-1px; left:50%; width:18px; height:2px;
+    background:var(--accent); opacity:0; transform:translateX(-50%) scaleX(.4);
+    transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease); }
+  nav button.on::after { opacity:1; transform:translateX(-50%) scaleX(1); }
   main { flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; order:1;
     scroll-snap-type:x mandatory; scrollbar-width:none;
     /* 横向滑到首/末页不再把滚动链交给浏览器（否则 iOS 会触发前进后退手势）；不影响页内轮播 */
     overscroll-behavior-x:contain; }
+  /* 切 tab 的交叉淡入：只给 main 一个 view-transition-name，header/导航不参与快照，避免整页闪。
+     只做 opacity 交叉，禁掉 group 的尺寸/位置插值 —— main 是横向轮播容器，
+     一旦让浏览器插值快照尺寸，切换瞬间就会"抖"一下 */
+  main { view-transition-name:panel; }
+  ::view-transition-group(panel) { animation:none; }
+  ::view-transition-old(panel) { animation:vtOut var(--dur) var(--ease) both; }
+  ::view-transition-new(panel) { animation:vtIn var(--dur) var(--ease) both; }
+  @keyframes vtOut { to { opacity:0; } }
+  @keyframes vtIn { from { opacity:0; } }
   /* —— 导航栏位置：底部 tab bar（默认，贴合原生 App）/ 顶部标签（原布局）——
      仅调整 flex order，DOM 结构不变，两种模式共用同一套切页逻辑 */
   body.nav-bottom nav { order:3; margin:0; border-bottom:none; border-top:1px solid var(--line);
@@ -123,10 +142,12 @@
     display:flex; align-items:center; justify-content:center; }
   body.nav-bottom nav button.on { color:var(--accent); }
   /* 底部模式用顶部短条，禁掉顶部模式的下划线短条，避免同时出现两条 */
-  body.nav-bottom nav button.on::after { content:none; }
-  /* 选中项顶部的短指示条：底部 tab bar 的位置锚点 */
-  body.nav-bottom nav button.on::before { content:""; position:absolute; top:0; left:50%; transform:translateX(-50%);
-    width:18px; height:2px; background:var(--accent); }
+  body.nav-bottom nav button::after { content:none; }
+  /* 选中项顶部的短指示条：底部 tab bar 的位置锚点（同样常态透明、选中淡入展开） */
+  body.nav-bottom nav button::before { content:""; position:absolute; top:0; left:50%; width:18px; height:2px;
+    background:var(--accent); opacity:0; transform:translateX(-50%) scaleX(.4);
+    transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease); }
+  body.nav-bottom nav button.on::before { opacity:1; transform:translateX(-50%) scaleX(1); }
   /* 键盘弹出时收起 tab bar（否则会被顶到键盘上方悬着），只在触屏设备由脚本加类 */
   body.nav-bottom.kb-open nav { display:none; }
   main::-webkit-scrollbar { display:none; }
@@ -171,9 +192,18 @@
   dialog { border:1px solid var(--line); background:var(--card); color:var(--ink);
     box-shadow:0 6px 24px rgba(26,26,26,.18); padding:14px; width:min(calc(100% - 32px), 448px);
     max-width:none;   /* UA 默认 max-width:calc(100% - 6px - 2em) 会把宽度又压窄 6px */
-    max-height:80vh; max-height:min(80vh, 80dvh); overflow-y:auto; margin:auto; }
+    max-height:80vh; max-height:min(80vh, 80dvh); overflow-y:auto; margin:auto;
+    /* 进出场：淡入 + 上移 8px。overlay/display 的 allow-discrete 让关闭时也能播完动画；
+       老浏览器不认这几个关键字，自动退化成「瞬间出现」，不会坏 */
+    opacity:1; transform:none;
+    transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease),
+      overlay var(--dur) allow-discrete, display var(--dur) allow-discrete; }
+  dialog:not([open]) { opacity:0; transform:translateY(8px); }
+  @starting-style { dialog[open] { opacity:0; transform:translateY(8px); } }
   /* 遮罩要够深：0.25 太淡，底层内容和弹窗分不清 */
-  dialog::backdrop { background:rgba(26,26,26,.45); }
+  dialog::backdrop { background:rgba(26,26,26,.45);
+    transition:background-color var(--dur) var(--ease), overlay var(--dur) allow-discrete, display var(--dur) allow-discrete; }
+  @starting-style { dialog[open]::backdrop { background-color:rgba(26,26,26,0); } }
   dialog h3 { font-size:14px; margin-bottom:6px; }
   dialog .dbtns { display:flex; gap:8px; margin-top:14px; position:sticky; bottom:-14px;
     background:var(--card); padding:10px 0 4px; border-top:1px solid var(--line); margin:14px -14px -14px; padding:10px 14px 14px; }
@@ -192,18 +222,21 @@
   .card { background:var(--card); box-shadow:0 1px 4px rgba(26,26,26,.08); padding:14px; }
   .card + .card { margin-top:12px; }
   .card h2 { font-size:15px; font-weight:700; }
-  .card h2 small { font-size:11px; font-weight:400; color:var(--mut); margin-left:6px; }
+  .card h2 small { font-size:11px; font-weight:400; color:var(--mut); margin-left:6px; white-space:nowrap; }   /* 不让「0/4 动作」被拆成「0/4 动」+「作」 */
   .meta { font-size:11.5px; color:var(--mut); margin-top:4px; line-height:1.6; }
   .bar { height:3px; background:var(--bg); margin-top:10px; }
   .bar b { display:block; height:100%; background:var(--accent); width:0; transition:width .3s; }
 
   /* 动作行（可复用组件：ex-row） */
-  .ex { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); cursor:pointer; }
+  .ex { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); cursor:pointer;
+    transition:background-color var(--dur) var(--ease), opacity var(--dur) var(--ease); }
+  .ex[onclick]:active { background:var(--bg); }   /* 按下时整行浅底，比单纯变淡更"实体" */
   .ex svg { flex-shrink:0; }
   .ex .info { flex:1; min-width:0; }
   .ex h3 { font-size:13.5px; font-weight:600; }
   .ex .sets { font-size:11.5px; color:var(--accent); font-weight:600; margin-top:1px; }
-  .ex .ck { width:20px; height:20px; border:1.5px solid var(--mut); flex-shrink:0; display:grid; place-items:center; font-size:12px; color:transparent; }
+  .ex .ck { width:20px; height:20px; border:1.5px solid var(--mut); flex-shrink:0; display:grid; place-items:center; font-size:12px; color:transparent;
+    transition:background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease); }
   .ex.done { opacity:.45; }
   .ex.done h3 { text-decoration:line-through; }
   .ex.done .ck { background:var(--accent); border-color:var(--accent); color:#fff; }
@@ -212,10 +245,13 @@
   /* 饮食打卡：分割线在“餐与餐”之间 */
   .mealblk { padding:6px 0; border-bottom:1px solid var(--line); }
   .mealblk:last-of-type { border-bottom:none; }
-  .meal { display:flex; align-items:center; gap:10px; padding:9px 0; cursor:pointer; }
+  .meal { display:flex; align-items:center; gap:10px; padding:9px 0; cursor:pointer;
+    transition:background-color var(--dur) var(--ease), opacity var(--dur) var(--ease); }
+  .meal[onclick]:active { background:var(--bg); }
   .meal h3 { font-size:13px; font-weight:600; flex:1; }
   .meal .p { font-size:11px; color:var(--accent); font-weight:600; }
-  .meal .ck { width:20px; height:20px; border:1.5px solid var(--mut); flex-shrink:0; display:grid; place-items:center; font-size:12px; color:transparent; }
+  .meal .ck { width:20px; height:20px; border:1.5px solid var(--mut); flex-shrink:0; display:grid; place-items:center; font-size:12px; color:transparent;
+    transition:background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease); }
   .meal.done { opacity:.45; }
   .meal.done h3 { text-decoration:line-through; }
   .meal.done .ck { background:var(--accent); border-color:var(--accent); color:#fff; }
@@ -2156,17 +2192,25 @@ const tabFromHash = ()=>{
 let curTab = "today";
 function applyTab(p){   // 实际切页：导航高亮 + 轮播定位 + 懒渲染（滑动与 hash 共用此入口）
   if(!TAB_NAMES.includes(p)) p = "today";
-  curTab = p;
-  document.querySelectorAll("#nav button").forEach(x=>{
-    const on = x.dataset.p === p;
-    x.classList.toggle("on", on);
-    if(on) x.setAttribute?.("aria-current","page"); else x.removeAttribute?.("aria-current");
-  });
-  const m = document.getElementById("main");
-  // 按索引 × 面板宽度定位：不能用 panel.offsetLeft —— 宽屏（>720px）时 body 居中留白会让
-  // offsetLeft 带上 body 的左偏移，导致点导航跳错页（手机上恰好为 0，所以只在桌面暴露）
-  if(m) m.scrollTo({ left: TAB_NAMES.indexOf(p) * (m.clientWidth || 1), behavior:"auto" });
-  renderTab(p);
+  const changed = p !== curTab;
+  const run = ()=>{
+    curTab = p;
+    document.querySelectorAll("#nav button").forEach(x=>{
+      const on = x.dataset.p === p;
+      x.classList.toggle("on", on);
+      if(on) x.setAttribute?.("aria-current","page"); else x.removeAttribute?.("aria-current");
+    });
+    const m = document.getElementById("main");
+    // 按索引 × 面板宽度定位：不能用 panel.offsetLeft —— 宽屏（>720px）时 body 居中留白会让
+    // offsetLeft 带上 body 的左偏移，导致点导航跳错页（手机上恰好为 0，所以只在桌面暴露）
+    if(m) m.scrollTo({ left: TAB_NAMES.indexOf(p) * (m.clientWidth || 1), behavior:"auto" });
+    renderTab(p);
+  };
+  // 切 tab 时用 View Transitions 做交叉淡入（只对 main 做，header/导航不参与，否则整页闪）；
+  // 不支持的浏览器、或系统开了「减弱动态效果」时直接切，不影响功能
+  const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(changed && typeof document.startViewTransition === "function" && !reduce) document.startViewTransition(run);
+  else run();
 }
 function switchTab(p){  // 语义入口：写 hash（深链/前进后退），由 hashchange 统一 applyTab
   if(!TAB_NAMES.includes(p)) p = "today";
