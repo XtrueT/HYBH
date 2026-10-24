@@ -27,7 +27,7 @@ let confirms=[]; global.confirm=q=>{ confirms.push(q); return true; };
 const html = fs.readFileSync(__dirname + "/../pwa/index.html", "utf8");
 const scripts = html.match(/<script>([\s\S]*?)<\/script>/g).map(s=>s.replace(/<\/?script>/g,""));
 const app = scripts.find(s=>s.includes("schemaVersion")).replace(/\nstorageNotice\(\);[\s\S]*$/, "");
-eval(app + "\nglobalThis.__T = { DB, KEY, renderDiet, renderToday, toggleMeal, toggleEx, applyCustomPackage, sanitizeBackup, dayRec, dayIdxOf, dkey, today, qrMatrix };");
+eval(app + "\nglobalThis.__T = { DB, KEY, renderDiet, renderToday, toggleMeal, toggleEx, parseCustomPackage, commitCustomPackage, sanitizeBackup, dayRec, dayIdxOf, dkey, today, qrMatrix };");
 const T = globalThis.__T;
 const memoEl = id => memo[id];
 
@@ -59,14 +59,15 @@ const pkg = () => ({ kind:"hybh-custom", v:1,
     {n:"早",p:"24g",cost:"¥7",rows:[["鸡蛋","2 个","12g"]]},
     {n:"午",p:"32g",cost:"¥13",rows:[["主菜","150g","32g"]]},
     {n:"晚",p:"26g",cost:"¥10",rows:[["瘦肉","150g","26g"]]}] } });
-T.applyCustomPackage(pkg());
+const importPkg = p => { const r = T.parseCustomPackage(p); if(r) T.commitCustomPackage(r); };
+importPkg(pkg());
 const pid = Object.keys(T.DB.plans).find(k=>T.DB.plans[k].name==="测试计划A");
 const mid = Object.keys(T.DB.meals).find(k=>T.DB.meals[k].label==="测试餐");
 const exN1 = Object.keys(T.DB.exercises).length;
 eq("首次导入新增计划/方案", !!pid && !!mid);
 eq("goal 指向新方案", T.DB.settings.goal === mid);
 pkg().plans.p1.days[0].exNames.push("臀桥");
-T.applyCustomPackage(pkg());
+importPkg(pkg());
 eq("二次导入计划数不变", Object.keys(T.DB.plans).filter(k=>T.DB.plans[k].name==="测试计划A").length === 1);
 eq("同一计划 id 原地更新", Object.keys(T.DB.plans).find(k=>T.DB.plans[k].name==="测试计划A") === pid);
 eq("计划内容已更新(含臀桥)", T.DB.plans[pid].days[0].exIds.length === 2);
@@ -77,7 +78,8 @@ eq("内置数据保留", !!(T.DB.plans["pl-muscle"] && T.DB.meals.muscle));
 // ========== 3. 恶意数据：入库允许，渲染必须转义 ==========
 console.log("3. XSS 防御（渲染出口转义）");
 const row = ["<u>食</u>","<u>1g</u>","<u>1g</u>"];
-T.applyCustomPackage({ kind:"hybh-custom", v:1,
+const importPkg2 = p => { const r = T.parseCustomPackage(p); if(r) T.commitCustomPackage(r); };
+importPkg2({ kind:"hybh-custom", v:1,
   plans:{ evil:{ name:"计划<img src=x onerror=alert(1)>", days:[
     {title:"<b>推</b>",exNames:["俯卧撑"]},{title:"拉",exNames:["单臂划船"]},{title:"腿",exNames:["高脚杯深蹲"]},
     {title:"休",exNames:["全身拉伸"]},{title:"全",exNames:["俯卧撑"]},{title:"核",exNames:["平板支撑"]},{title:"休",exNames:["全身拉伸"]}] } },

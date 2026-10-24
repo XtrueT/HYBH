@@ -49,11 +49,11 @@
   button, a, [role="button"], .chip, .hm button { touch-action:manipulation; }
   /* 按压反馈：手指按下即有回应（只给真正可点的元素，避免误导演示性列表） */
   .btn:active, nav button:active, .chip:active, .ex[onclick]:active, .meal[onclick]:active,
+  .hm-sum:active, #hmToggle:active { opacity:.55; }
   /* 收起态摘要行：与右上角「展开」按钮同高居中对齐（按钮 25px，原来行高只有 19px，上下各冒出来一点） */
   .hm-sum { display:flex; align-items:center; gap:8px; min-height:26px; cursor:pointer; font-size:12.5px; }
   .hm-sum b { color:var(--ink); }
   .hm-sum span { color:var(--mut); font-size:11.5px; }
-  .hm-sum:active, #hmToggle:active { opacity:.55; }
   @media (min-width:720px){ body{max-width:480px; margin:0 auto; box-shadow:0 0 24px rgba(0,0,0,.08);} }
 
   /* 无 JS 提示：纯 HTML/CSS，脚本被禁用时也能显示 */
@@ -102,8 +102,12 @@
 
   nav { display:flex; margin:12px 16px 0; border-bottom:1px solid var(--line); order:0; }
   nav button { flex:1; text-align:center; font-size:12.5px; font-weight:500; color:var(--mut); padding:9px 0; cursor:pointer;
-    background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
-  nav button.on { color:var(--accent); font-weight:700; border-bottom-color:var(--accent); }   /* 与底部模式统一用强调色 */
+    background:none; border:none; font-family:inherit; position:relative; }
+  /* 选中态不加粗：字重变化会让文字宽度变、居中位置抖一下（点 tab 时"文字从左边闪到右边"就是这个） */
+  nav button.on { color:var(--accent); }
+  /* 选中指示线：与底部模式统一为 18×2px 短条（原来顶部是整格宽的下划线，两种模式宽度差很多） */
+  nav button.on::after { content:""; position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
+    width:18px; height:2px; background:var(--accent); }
   main { flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; order:1;
     scroll-snap-type:x mandatory; scrollbar-width:none;
     /* 横向滑到首/末页不再把滚动链交给浏览器（否则 iOS 会触发前进后退手势）；不影响页内轮播 */
@@ -111,11 +115,15 @@
   /* —— 导航栏位置：底部 tab bar（默认，贴合原生 App）/ 顶部标签（原布局）——
      仅调整 flex order，DOM 结构不变，两种模式共用同一套切页逻辑 */
   body.nav-bottom nav { order:3; margin:0; border-bottom:none; border-top:1px solid var(--line);
-    background:var(--card); padding-bottom:env(safe-area-inset-bottom); }
-  /* 高度对齐原生：iOS 49pt / Android 48dp（下方安全区另算） */
-  body.nav-bottom nav button { position:relative; height:48px; padding:0; font-size:12px; border-bottom:none; margin-bottom:0;
+    background:var(--card); padding:0 8px;   /* 左右留一点，不贴屏幕边（iPhone 圆角屏） */
+    /* 底部：iPhone 有 home indicator（34pt 安全区），安卓/鸿蒙多数为 0 —— 用 max 兜底至少留 6px，避免贴着系统手势条 */
+    padding-bottom:max(6px, env(safe-area-inset-bottom)); }
+  /* 高度对齐常见 App：iOS tab bar 49pt / Android 56dp（不含安全区） */
+  body.nav-bottom nav button { position:relative; height:50px; padding:0; font-size:12px; border-bottom:none; margin-bottom:0;
     display:flex; align-items:center; justify-content:center; }
-  body.nav-bottom nav button.on { color:var(--accent); font-weight:700; }
+  body.nav-bottom nav button.on { color:var(--accent); }
+  /* 底部模式用顶部短条，禁掉顶部模式的下划线短条，避免同时出现两条 */
+  body.nav-bottom nav button.on::after { content:none; }
   /* 选中项顶部的短指示条：底部 tab bar 的位置锚点 */
   body.nav-bottom nav button.on::before { content:""; position:absolute; top:0; left:50%; transform:translateX(-50%);
     width:18px; height:2px; background:var(--accent); }
@@ -164,7 +172,8 @@
     box-shadow:0 6px 24px rgba(26,26,26,.18); padding:14px; width:min(calc(100% - 32px), 448px);
     max-width:none;   /* UA 默认 max-width:calc(100% - 6px - 2em) 会把宽度又压窄 6px */
     max-height:80vh; max-height:min(80vh, 80dvh); overflow-y:auto; margin:auto; }
-  dialog::backdrop { background:rgba(26,26,26,.25); }
+  /* 遮罩要够深：0.25 太淡，底层内容和弹窗分不清 */
+  dialog::backdrop { background:rgba(26,26,26,.45); }
   dialog h3 { font-size:14px; margin-bottom:6px; }
   dialog .dbtns { display:flex; gap:8px; margin-top:14px; position:sticky; bottom:-14px;
     background:var(--card); padding:10px 0 4px; border-top:1px solid var(--line); margin:14px -14px -14px; padding:10px 14px 14px; }
@@ -230,7 +239,8 @@
   .btn.sm { min-height:32px; padding:0 11px; font-size:12px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
   .chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); background:var(--bg);
-    padding:6px 11px; font-size:12px; cursor:pointer; font-family:inherit; color:var(--ink); }
+    padding:6px 11px; font-size:12px; cursor:pointer; font-family:inherit; color:var(--ink);
+    transition:background-color .12s ease, border-color .12s ease, color .12s ease; }   /* 选中切换时颜色渐变，不闪 */
   .chip b { color:var(--mut); cursor:pointer; font-weight:400; }
   .exitem { display:flex; align-items:center; gap:8px; padding:8px 2px; border-bottom:1px solid var(--line); font-size:12.5px; }
   .exitem:last-child { border-bottom:none; }
@@ -666,7 +676,10 @@ function okDlg(title, html, okLabel){
 }
 function refreshDlg(title, html){
   const dlg = document.getElementById("dlg");
-  if(dlg.open) dlg.innerHTML = dlgInner(title, html);
+  if(!dlg.open) return;
+  const st = dlg.scrollTop;                 // 内容重绘会重置滚动位置，先存后还（否则选个动作就跳回顶部，像弹窗被关掉）
+  dlg.innerHTML = dlgInner(title, html);
+  dlg.scrollTop = st;
 }
 function closeDlg(apply){
   const dlg = document.getElementById("dlg");
@@ -1049,13 +1062,13 @@ function renderSet(){
     <div class="card" style="margin-bottom:12px">
       <h2>个人数据</h2>
       <div class="frow">
-        <label>身高 cm<input id="setH" type="number" value="${s.height}"></label>
-        <label>体重 kg<input id="setW" type="number" value="${s.weight}" step="0.1" min="${wRange.lo}" max="${wRange.hi}"></label>
+        <label>身高 cm<input id="setH" name="height" type="number" value="${s.height}"></label>
+        <label>体重 kg<input id="setW" name="weight" type="number" value="${s.weight}" step="0.1" min="${wRange.lo}" max="${wRange.hi}"></label>
       </div>
       <div class="frow">
-        <label>年龄<input id="setA" type="number" value="${s.age}"></label>
-        <label>性别<select id="setS"><option value="none"${s.sex==="none"?' selected':""}>不透露</option><option value="male"${s.sex==="male"?' selected':""}>男</option><option value="female"${s.sex==="female"?' selected':""}>女</option></select></label>
-        <label>目标体重 kg<input id="setTW" type="number" value="${s.targetWeight}" step="0.1" min="${tRange.lo}" max="${tRange.hi}"></label>
+        <label>年龄<input id="setA" name="age" type="number" value="${s.age}"></label>
+        <label>性别<select id="setS" name="sex"><option value="none"${s.sex==="none"?' selected':""}>不透露</option><option value="male"${s.sex==="male"?' selected':""}>男</option><option value="female"${s.sex==="female"?' selected':""}>女</option></select></label>
+        <label>目标体重 kg<input id="setTW" name="targetWeight" type="number" value="${s.targetWeight}" step="0.1" min="${tRange.lo}" max="${tRange.hi}"></label>
       </div>
       <p class="meta">BMI ${bmi.toFixed(1)}（${bmiTag(bmi)}）${tgtLine ? " · " + tgtLine : ""}</p>
       <p class="meta">${dtLine}</p>
@@ -1253,8 +1266,8 @@ function newPlan(){
 }
 function planEditor(pid, p){
   return `
-    <div class="frow"><label>计划名称<input value="${esc(p.name)}" onchange="renamePlan('${pid}', this.value)"></label></div>
-    <div class="frow"><label>计划方向<select onchange="setPlanDir('${pid}', this.value)">
+    <div class="frow"><label>计划名称<input id="plan-name" name="planName" value="${esc(p.name)}" onchange="renamePlan('${pid}', this.value)"></label></div>
+    <div class="frow"><label>计划方向<select id="plan-dir" name="planDir" onchange="setPlanDir('${pid}', this.value)">
       <option value=""${p.dir?"":" selected"}>未指定</option>
       ${DIRS.map(d=>`<option value="${d}"${p.dir===d?" selected":""}>${d}</option>`).join("")}
     </select></label></div>
@@ -1262,7 +1275,7 @@ function planEditor(pid, p){
       <div style="margin-top:10px">
         <div style="display:flex;align-items:center;gap:8px">
           <b style="font-size:13px;flex-shrink:0">周${"一二三四五六日"[di]}</b>
-          <input value="${esc(day.title)}" style="flex:1;min-width:0;padding:9px;border:1px solid var(--line);font-size:13px;background:var(--card);color:var(--ink);font-family:inherit"
+          <input id="day-title-${di}" name="dayTitle${di}" value="${esc(day.title)}" style="flex:1;min-width:0;padding:9px;border:1px solid var(--line);font-size:13px;background:var(--card);color:var(--ink);font-family:inherit"
             onchange="renameDay('${pid}',${di},this.value)">
         </div>
         <div style="margin-top:6px">
@@ -1278,7 +1291,7 @@ function planEditor(pid, p){
             </div>`;
           }).join("") || '<div class="meta">未安排动作</div>'}
         </div>
-        <select class="btn" style="margin-top:8px;max-width:100%" onchange="addEx('${pid}',${di},this.value);this.selectedIndex=0">
+        <select id="day-ex-${di}" name="dayEx${di}" class="btn" style="margin-top:8px;max-width:100%" onchange="addEx('${pid}',${di},this.value);this.selectedIndex=0">
           <option value="">＋ 从动作库添加…</option>
           ${Object.entries(DB.exercises).map(([id,e])=>`<option value="${id}">${esc(e.name)}（${e.part}）</option>`).join("")}
         </select>
@@ -1505,7 +1518,16 @@ function importData(e){
     input.value = "";   // 复位，允许再次选择同一个文件
     let obj;
     try{ obj = JSON.parse(fr.result); }catch(_){ infoDlg("JSON 格式错误：文件内容不是合法的 JSON"); return; }
-    if(obj && obj.kind === "hybh-custom"){ applyCustomPackage(obj); return; }   // AI 定制包
+    if(obj && obj.kind === "hybh-custom"){   // AI 定制包：走同一套预览确认
+      const p = parseCustomPackage(obj);
+      if(!p){ infoDlg("定制包中没有可导入的计划或饮食方案，已取消。"); return; }
+      openDlg("确认导入", p.rowsHtml + p.warnHtml +
+        `<div class="meta" style="margin-top:8px">重复导入自动去重；确认后立即生效。</div>`, () => {
+        commitCustomPackage(p);
+        infoDlg(`导入完成：动作 +${p.exN} · 计划 新增 ${p.plN}/更新 ${p.plU}${p.mealObj ? " · 饮食方案已启用" : ""}`);
+      }, null, "确认导入");
+      return;
+    }
     if(obj && obj.schemaVersion){   // 全量备份（结构校验 + key 规范化）
       askDlg("导入备份", "将覆盖当前全部数据（动作库、计划、饮食方案、打卡记录），且不可撤销。\n建议先「导出 JSON」留一份当前备份。", () => {
         try{
@@ -1579,7 +1601,8 @@ function sanitizeBackup(o){
 const CUSTOM_FIGS = ["squat","pushup","fly","raise","dead","row","curl","core","bridge","stretch","rest"];
 const clamp = (n,a,b,d)=>{ n = +n; return Number.isFinite(n) ? Math.min(b, Math.max(a, n)) : d; };
 const str = (v,n)=>String(v==null?"":v).trim().slice(0,n);
-function applyCustomPackage(pkg){
+// 解析定制包：只做校验与归一，不写 DB；返回 null 表示没有可导入内容
+function parseCustomPackage(pkg){
   const warn = [], newEx = {}, newPlans = {}, updPlans = [];
   const name2id = {};
   Object.entries(DB.exercises).forEach(([id,e])=>{ if(!name2id[e.name]) name2id[e.name] = id; });
@@ -1641,9 +1664,7 @@ function applyCustomPackage(pkg){
   }
 
   const plN = Object.keys(newPlans).length, plU = updPlans.length;
-  if(!plN && !plU && !mealObj){
-    infoDlg("定制包中没有可导入的计划或饮食方案，已取消。"); return;
-  }
+  if(!plN && !plU && !mealObj) return null;
 
   const exN = Object.keys(newEx).length;
   // 4. 个人数据（可选）：先算出夹紧后的值用于预览，确认后才写入
@@ -1662,7 +1683,6 @@ function applyCustomPackage(pkg){
     };
   }
   const SEX_CN = { male:"男", female:"女", none:"不透露" };
-  // 确认改用应用内 <dialog>（可滚动、按钮 sticky），原生 confirm 长内容会把按钮顶出屏幕
   const rowsHtml = [
     ["新增动作", `${exN} 个（重名自动复用已有动作）`],
     ["新增计划", `${plN} 套${plN ? "（导入后自动启用第一套）" : ""}`],
@@ -1671,24 +1691,23 @@ function applyCustomPackage(pkg){
     stNext ? ["个人数据将更新为", `身高 ${stNext.height}cm · 体重 ${stNext.weight}kg · 年龄 ${stNext.age} · 性别 ${SEX_CN[stNext.sex]} · 目标 ${stNext.targetWeight}kg`] : ""
   ].filter(Boolean).map(r=>`<div class="pv"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
   const warnHtml = warn.length ? `<div class="pvw">提示：${esc(warn.slice(0,6).join("；"))}${warn.length>6?"…":""}</div>` : "";
-  openDlg("AI 定制包导入预览", rowsHtml + warnHtml +
-    `<div class="meta" style="margin-top:8px">重复导入自动去重；确认后立即生效。</div>`, () => {
-    if(stNext) Object.assign(DB.settings, stNext);
-
-    Object.assign(DB.exercises, newEx);
-    Object.assign(DB.plans, newPlans);
-    updPlans.forEach(([pid, days, dirVal])=>{ DB.plans[pid].days = days; if(dirVal) DB.plans[pid].dir = dirVal; });
-    if(plN) DB.activePlanId = Object.keys(newPlans)[0];
-    else if(plU && !updPlans.some(([pid])=>pid===DB.activePlanId)) DB.activePlanId = updPlans[0][0];
-    if(mealObj){
-      const k = mealObj._existKey || uid("ml");
-      delete mealObj._existKey;
-      DB.meals[k] = mealObj;
-      DB.settings.goal = k;
-    }
-    save(); renderAll();
-    infoDlg(`导入完成：动作 +${exN} · 计划 新增${plN}/更新${plU}${mealObj?" · 饮食方案已启用":""}`);
-  }, null, "确认导入");
+  return { newEx, newPlans, updPlans, mealObj, stNext, exN, plN, plU, rowsHtml, warnHtml };
+}
+// 用户确认后执行写入（与 parse 分开，避免"解析即落库"）
+function commitCustomPackage(p){
+  if(p.stNext) Object.assign(DB.settings, p.stNext);
+  Object.assign(DB.exercises, p.newEx);
+  Object.assign(DB.plans, p.newPlans);
+  p.updPlans.forEach(([pid, days, dirVal])=>{ DB.plans[pid].days = days; if(dirVal) DB.plans[pid].dir = dirVal; });
+  if(p.plN) DB.activePlanId = Object.keys(p.newPlans)[0];
+  else if(p.plU && !p.updPlans.some(([pid])=>pid===DB.activePlanId)) DB.activePlanId = p.updPlans[0][0];
+  if(p.mealObj){
+    const k = p.mealObj._existKey || uid("ml");
+    delete p.mealObj._existKey;
+    DB.meals[k] = p.mealObj;
+    DB.settings.goal = k;
+  }
+  save(); renderAll();
 }
 function resetData(){
   askDlg("重置数据", "动作库、计划、打卡记录将清空并恢复初始状态。\n此操作不可恢复，建议先「导出 JSON」备份。", () => {
@@ -1707,8 +1726,11 @@ function loadSkill(){
     .then(t=>{ SKILL_TEXT = t; return t; });
 }
 const SKILL_LOAD_FAIL = "无法加载 SKILL.md。\n请通过 http(s) 访问本页（file:// 下浏览器会拦截本地文件读取）；部署后由 Service Worker 提供离线缓存。";
-// AI 定制是一次性动作：改为设置页按钮打开的弹窗，不再占一个 tab
+// AI 定制是一次性动作：设置页按钮打开。粘贴 → 预览 → 导入都在同一个弹窗内切换，
+// 不再「AI 弹窗 → 确认弹窗 → 成功弹窗」层层叠加
+let aiDraft = "", aiPending = null;
 function openAiDlg(){
+  aiPending = null;
   const dlg = document.getElementById("dlg");
   dlg.onapply = null; dlg.oncancel = null;
   dlg.innerHTML = `
@@ -1720,11 +1742,12 @@ function openAiDlg(){
     <details class="menu" style="margin-top:4px"><summary>查看 SKILL 全文</summary>
       <pre id="skill-pre" style="font-family:ui-monospace,monospace;font-size:10.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--ink);max-height:200px;overflow:auto">加载中…</pre>
     </details>
-    <textarea id="pkg-box" placeholder='粘贴 AI 生成的定制包 JSON（应以 {"kind":"hybh-custom", ...} 开头）' style="display:block;width:100%;height:130px;resize:vertical;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;padding:6px;margin-top:8px;background:var(--card);color:var(--ink);border:1px solid var(--line);"></textarea>
+    <textarea id="pkg-box" placeholder='粘贴 AI 生成的定制包 JSON（应以 {"kind":"hybh-custom", ...} 开头）' style="display:block;width:100%;height:130px;resize:vertical;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;padding:6px;margin-top:8px;background:var(--card);color:var(--ink);border:1px solid var(--line);">${esc(aiDraft)}</textarea>
     <div id="ai-err" class="meta" style="color:#a33;margin-top:6px" hidden></div>
     <div class="dbtns"><button class="btn" onclick="closeDlg(false)">关闭</button>
     <button class="btn acc" onclick="importPkgText()">导入</button></div>`;
   showModalSafe(dlg);
+  focusDlg(dlg, ".acc");
   loadSkill().then(t=>{
     const pre = document.getElementById("skill-pre");
     if(pre) pre.textContent = t;              // textContent 天然安全，无需 esc()
@@ -1732,6 +1755,29 @@ function openAiDlg(){
     const pre = document.getElementById("skill-pre");
     if(pre) pre.textContent = SKILL_LOAD_FAIL;
   });
+}
+// 确认态 / 完成态：都在同一个弹窗里切换，不再叠加新弹窗
+function renderAiConfirm(){
+  const p = aiPending; if(!p) return;
+  const dlg = document.getElementById("dlg");
+  dlg.innerHTML = `<h3>确认导入</h3>
+    ${p.rowsHtml}${p.warnHtml}
+    <div class="meta" style="margin-top:8px">重复导入自动去重；确认后立即生效。</div>
+    <div class="dbtns">
+      <button class="btn" onclick="openAiDlg()">返回修改</button>
+      <button class="btn acc" onclick="commitAi()">确认导入</button>
+    </div>`;
+  focusDlg(dlg, ".acc");
+}
+function commitAi(){
+  const p = aiPending; if(!p) return;
+  commitCustomPackage(p);
+  aiPending = null; aiDraft = "";
+  const dlg = document.getElementById("dlg");
+  dlg.innerHTML = `<h3>导入完成</h3>
+    <div class="meta" style="line-height:1.9">动作 +${p.exN} · 计划 新增 ${p.plN} / 更新 ${p.plU}${p.mealObj ? " · 饮食方案已启用" : ""}</div>
+    <div class="dbtns"><button class="btn acc" onclick="closeDlg(false)">完成</button></div>`;
+  focusDlg(dlg, ".acc");
 }
 // 弹窗内错误提示：不替换弹窗内容，避免把用户粘贴到一半的 JSON 冲掉
 function aiErr(msg){
@@ -1759,15 +1805,19 @@ function fallbackCopy(text, ok){
   document.body.removeChild(t);
 }
 function importPkgText(){
-  const v = document.getElementById("pkg-box").value.trim();
+  const box = document.getElementById("pkg-box");
+  const v = box ? box.value.trim() : "";
+  aiDraft = v;                                   // 留草稿：点「返回修改」时不用重新粘贴
   if(!v){ aiErr("请先粘贴 AI 返回的定制包 JSON"); return; }
   let obj;
   try{ obj = JSON.parse(v); }catch(_){ aiErr("JSON 格式错误：请检查是否完整复制（从 { 到 } 全选）"); return; }
   if(!obj || obj.kind !== "hybh-custom"){
     aiErr('这不是 AI 定制包（缺少 kind:"hybh-custom"），请让 AI 严格按 SKILL 重新生成'); return;
   }
-  closeDlg(false);          // 先关掉 AI 弹窗，再由导入预览弹窗接管
-  applyCustomPackage(obj);
+  const p = parseCustomPackage(obj);
+  if(!p){ aiErr("定制包中没有可导入的计划或饮食方案，请让 AI 重新生成"); return; }
+  aiPending = p;
+  renderAiConfirm();                             // 同一个弹窗内切到确认态
 }
 
 // ---------- 分享图（Canvas 生成：今日进度 + 周计划 + 饮食方案 + 站点二维码） ----------
